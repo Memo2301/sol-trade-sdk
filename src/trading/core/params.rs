@@ -322,3 +322,107 @@ impl SellParams {
         }
     }
 }
+
+/// Bundle-based buy parameters with fee collection
+#[derive(Clone)]
+pub struct BuyWithBundleParams {
+    pub swqos_clients: Vec<Arc<SwqosClient>>,
+    pub payer: Arc<Keypair>,
+    pub mint: Pubkey,
+    pub creator: Pubkey,
+    pub sol_amount: u64,
+    pub slippage_basis_points: Option<u64>,
+    pub priority_fee: PriorityFee,
+    pub lookup_table_key: Option<Pubkey>,
+    pub recent_blockhash: Hash,
+    pub data_size_limit: u32,
+    pub protocol_params: Box<dyn ProtocolParams>,
+    /// Fee collection wallet address
+    pub fee_wallet: Pubkey,
+    /// Fee percentage (e.g., 1.0 for 1%)
+    pub fee_percentage: f64,
+    /// Minimum fee in lamports
+    pub minimum_fee_lamports: u64,
+    /// Jito tip amount in lamports
+    pub tip_amount_lamports: u64,
+}
+
+/// Bundle-based sell parameters with fee collection
+#[derive(Clone)]
+pub struct SellWithBundleParams {
+    pub swqos_clients: Vec<Arc<SwqosClient>>,
+    pub payer: Arc<Keypair>,
+    pub mint: Pubkey,
+    pub creator: Pubkey,
+    pub token_amount: Option<u64>,
+    pub slippage_basis_points: Option<u64>,
+    pub priority_fee: PriorityFee,
+    pub lookup_table_key: Option<Pubkey>,
+    pub recent_blockhash: Hash,
+    pub protocol_params: Box<dyn ProtocolParams>,
+    /// Fee collection wallet address
+    pub fee_wallet: Pubkey,
+    /// Fee percentage (e.g., 1.0 for 1%)
+    pub fee_percentage: f64,
+    /// Minimum fee in lamports
+    pub minimum_fee_lamports: u64,
+    /// Jito tip amount in lamports
+    pub tip_amount_lamports: u64,
+}
+
+impl BuyWithTipParams {
+    /// Convert to bundle parameters with fee collection
+    pub fn with_bundle(
+        self,
+        fee_wallet: Pubkey,
+        fee_percentage: f64,
+        minimum_fee_lamports: u64,
+        tip_amount_lamports: u64,
+    ) -> BuyWithBundleParams {
+        BuyWithBundleParams {
+            swqos_clients: self.swqos_clients,
+            payer: self.payer,
+            mint: self.mint,
+            creator: self.creator,
+            sol_amount: self.sol_amount,
+            slippage_basis_points: self.slippage_basis_points,
+            priority_fee: self.priority_fee,
+            lookup_table_key: self.lookup_table_key,
+            recent_blockhash: self.recent_blockhash,
+            data_size_limit: self.data_size_limit,
+            protocol_params: self.protocol_params,
+            fee_wallet,
+            fee_percentage,
+            minimum_fee_lamports,
+            tip_amount_lamports,
+        }
+    }
+}
+
+impl SellWithTipParams {
+    /// Convert to bundle parameters with fee collection
+    pub fn with_bundle(
+        self,
+        fee_wallet: Pubkey,
+        fee_percentage: f64,
+        minimum_fee_lamports: u64,
+        tip_amount_lamports: u64,
+    ) -> SellWithBundleParams {
+        SellWithBundleParams {
+            swqos_clients: self.swqos_clients,
+            payer: self.payer,
+            mint: self.mint,
+            creator: self.creator,
+            token_amount: self.token_amount,
+            slippage_basis_points: self.slippage_basis_points,
+            priority_fee: self.priority_fee,
+            lookup_table_key: self.lookup_table_key,
+            recent_blockhash: self.recent_blockhash,
+            protocol_params: self.protocol_params,
+            fee_wallet,
+            fee_percentage,
+            minimum_fee_lamports,
+            tip_amount_lamports,
+        }
+    }
+}

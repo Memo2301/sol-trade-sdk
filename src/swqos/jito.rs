@@ -33,6 +33,23 @@ impl SwqosClientTrait for JitoClient {
         self.send_transactions(trade_type, transactions).await
     }
 
+    async fn send_bundle(&self, trade_type: TradeType, transactions: &Vec<VersionedTransaction>) -> Result<Vec<String>> {
+        // Jito bundles are essentially what send_transactions does, but we need to return signatures
+        let signatures: Vec<String> = transactions
+            .iter()
+            .map(|tx| tx.signatures[0].to_string())
+            .collect();
+        
+        // Use the existing send_transactions implementation for bundle submission
+        self.send_transactions(trade_type, transactions).await?;
+        
+        Ok(signatures)
+    }
+
+    fn supports_bundles(&self) -> bool {
+        true // Jito supports bundles
+    }
+
     fn get_tip_account(&self) -> Result<String> {
         if let Some(acc) = JITO_TIP_ACCOUNTS.choose(&mut rand::rng()) {
             Ok(acc.to_string())

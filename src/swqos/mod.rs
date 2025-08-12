@@ -55,6 +55,10 @@ pub type SwqosClient = dyn SwqosClientTrait + Send + Sync + 'static;
 pub trait SwqosClientTrait {
     async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<()>;
     async fn send_transactions(&self, trade_type: TradeType, transactions: &Vec<VersionedTransaction>) -> Result<()>;
+    /// Send a bundle of transactions atomically (only for bundle-capable clients like Jito)
+    async fn send_bundle(&self, trade_type: TradeType, transactions: &Vec<VersionedTransaction>) -> Result<Vec<String>>;
+    /// Check if this client supports bundle submission
+    fn supports_bundles(&self) -> bool;
     fn get_tip_account(&self) -> Result<String>;
     fn get_swqos_type(&self) -> SwqosType;
 }

@@ -32,6 +32,15 @@ impl SwqosClientTrait for NextBlockClient {
         self.send_transactions(trade_type, transactions).await
     }
 
+    async fn send_bundle(&self, _trade_type: TradeType, _transactions: &Vec<VersionedTransaction>) -> Result<Vec<String>> {
+        // NextBlock doesn't support bundle submission (as far as we know)
+        Err(anyhow::anyhow!("Bundle submission not supported by NextBlock client"))
+    }
+
+    fn supports_bundles(&self) -> bool {
+        false // NextBlock doesn't support bundles
+    }
+
     fn get_tip_account(&self) -> Result<String> {
         let tip_account = *NEXTBLOCK_TIP_ACCOUNTS.choose(&mut rand::rng()).or_else(|| NEXTBLOCK_TIP_ACCOUNTS.first()).unwrap();
         Ok(tip_account.to_string())

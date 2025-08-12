@@ -33,6 +33,15 @@ impl SwqosClientTrait for TemporalClient {
         self.send_transactions(trade_type, transactions).await
     }
 
+    async fn send_bundle(&self, _trade_type: TradeType, _transactions: &Vec<VersionedTransaction>) -> Result<Vec<String>> {
+        // Temporal doesn't support bundle submission (as far as we know)
+        Err(anyhow::anyhow!("Bundle submission not supported by Temporal client"))
+    }
+
+    fn supports_bundles(&self) -> bool {
+        false // Temporal doesn't support bundles
+    }
+
     fn get_tip_account(&self) -> Result<String> {
         let tip_account = *NOZOMI_TIP_ACCOUNTS.choose(&mut rand::rng()).or_else(|| NOZOMI_TIP_ACCOUNTS.first()).unwrap();
         Ok(tip_account.to_string())

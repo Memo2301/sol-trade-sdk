@@ -45,6 +45,15 @@ impl SwqosClientTrait for SolRpcClient {
         Ok(())
     }
 
+    async fn send_bundle(&self, _trade_type: TradeType, _transactions: &Vec<VersionedTransaction>) -> Result<Vec<String>> {
+        // Regular RPC doesn't support bundles
+        Err(anyhow::anyhow!("Bundle submission not supported by regular RPC client"))
+    }
+
+    fn supports_bundles(&self) -> bool {
+        false // Regular RPC doesn't support bundles
+    }
+
     fn get_tip_account(&self) -> Result<String> {
         Ok("".to_string())
     }
