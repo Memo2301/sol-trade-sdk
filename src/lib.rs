@@ -211,7 +211,6 @@ impl SolanaTrade {
             priority_fee.buy_tip_fees =
                 priority_fee.buy_tip_fees.iter().map(|_| custom_buy_tip_fee.unwrap()).collect();
         }
-        let buy_with_tip_params = buy_params.clone().with_tip(self.swqos_clients.clone());
 
         // Validate protocol params
         let is_valid_params = match dex_type {
@@ -232,7 +231,22 @@ impl SolanaTrade {
             return Err(anyhow::anyhow!("Invalid protocol params for Trade"));
         }
 
-        executor.buy_with_tip(buy_with_tip_params, self.middleware_manager.clone()).await
+        // FORCE REAL TRANSACTION ANALYSIS: Always use standard execution for real TradeResult
+        // Parallel execution gives placeholder data which breaks position tracking
+        let standard_buy_params = BuyParams {
+            rpc: Some(self.rpc.clone()),
+            payer: self.payer.clone(),
+            mint: mint,
+            creator: creator.unwrap_or(Pubkey::default()),
+            sol_amount: sol_amount,
+            slippage_basis_points: slippage_basis_points,
+            priority_fee: priority_fee, // Contains calculated fees from jito_tip_service
+            lookup_table_key: final_lookup_table_key,
+            recent_blockhash,
+            data_size_limit: 0,
+            protocol_params: protocol_params.clone(),
+        };
+        executor.buy(standard_buy_params, self.middleware_manager.clone()).await
     }
 
     /// Execute a sell order for a specified token
