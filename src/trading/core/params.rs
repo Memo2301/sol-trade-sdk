@@ -227,6 +227,9 @@ pub struct BonkParams {
     /// Specifies the program used by the token, usually spl_token::ID or spl_token_2022::ID
     pub mint_token_program: Pubkey,
     pub auto_handle_wsol: bool,
+    /// Dynamic fee destination accounts from trade event
+    pub fee_destination_1: Pubkey,
+    pub fee_destination_2: Pubkey,
 }
 
 impl BonkParams {
@@ -238,6 +241,8 @@ impl BonkParams {
             real_quote: trade_info.real_quote_after as u128,
             mint_token_program: trade_info.base_token_program,
             auto_handle_wsol: true,
+            fee_destination_1: trade_info.fee_destination_1,
+            fee_destination_2: trade_info.fee_destination_2,
         }
     }
 
@@ -285,6 +290,8 @@ impl BonkParams {
             real_quote: real_quote,
             mint_token_program: trade_info.base_token_program,
             auto_handle_wsol: true,
+            fee_destination_1: trade_info.fee_destination_1,
+            fee_destination_2: trade_info.fee_destination_2,
         }
     }
 
@@ -304,6 +311,8 @@ impl BonkParams {
             real_quote: pool_data.real_quote as u128,
             mint_token_program: token_account.owner,
             auto_handle_wsol: true,
+            fee_destination_1: Pubkey::default(), // Will need to be set from trade event
+            fee_destination_2: Pubkey::default(), // Will need to be set from trade event
         })
     }
 }

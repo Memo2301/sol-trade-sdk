@@ -27,6 +27,7 @@ pub mod accounts {
     pub const EVENT_AUTHORITY: Pubkey = pubkey!("2DPAtwB8L12vrMRExbLuyGnC7n2J5LNoZQSejeQGpwkr");
     pub const WSOL_TOKEN_ACCOUNT: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
     pub const BONK: Pubkey = pubkey!("LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj");
+    pub const SYSTEM_PROGRAM: Pubkey = pubkey!("11111111111111111111111111111111");
 
     pub const PLATFORM_FEE_RATE: u128 = 100; // 1%
     pub const PROTOCOL_FEE_RATE: u128 = 25; // 0.25%

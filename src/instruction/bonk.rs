@@ -122,24 +122,27 @@ impl BonkInstructionBuilder {
 
         // Create buy instruction
         let accounts = vec![
-            solana_sdk::instruction::AccountMeta::new(params.payer.pubkey(), true), // Payer (signer)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::AUTHORITY, false), // Authority (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::GLOBAL_CONFIG, false), // Global Config (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::PLATFORM_CONFIG, false), // Platform Config (readonly)
-            solana_sdk::instruction::AccountMeta::new(pool_state, false), // Pool State
-            solana_sdk::instruction::AccountMeta::new(user_base_token_account, false), // User Base Token
-            solana_sdk::instruction::AccountMeta::new(user_quote_token_account, false), // User Quote Token
-            solana_sdk::instruction::AccountMeta::new(base_vault_account, false), // Base Vault
-            solana_sdk::instruction::AccountMeta::new(quote_vault_account, false), // Quote Vault
-            solana_sdk::instruction::AccountMeta::new_readonly(params.mint, false), // Base Token Mint (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::WSOL_TOKEN_ACCOUNT, false), // Quote Token Mint (readonly)
+            solana_sdk::instruction::AccountMeta::new(params.payer.pubkey(), true), // Account 0: Payer (signer)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::AUTHORITY, false), // Account 1: Authority (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::GLOBAL_CONFIG, false), // Account 2: Global Config (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::PLATFORM_CONFIG, false), // Account 3: Platform Config (readonly)
+            solana_sdk::instruction::AccountMeta::new(pool_state, false), // Account 4: Pool State
+            solana_sdk::instruction::AccountMeta::new(user_base_token_account, false), // Account 5: User Base Token
+            solana_sdk::instruction::AccountMeta::new(user_quote_token_account, false), // Account 6: User Quote Token
+            solana_sdk::instruction::AccountMeta::new(base_vault_account, false), // Account 7: Base Vault
+            solana_sdk::instruction::AccountMeta::new(quote_vault_account, false), // Account 8: Quote Vault
+            solana_sdk::instruction::AccountMeta::new_readonly(params.mint, false), // Account 9: Base Token Mint (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::WSOL_TOKEN_ACCOUNT, false), // Account 10: Quote Token Mint (readonly)
             solana_sdk::instruction::AccountMeta::new_readonly(
                 protocol_params.mint_token_program,
                 false,
-            ), // Base Token Program (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::TOKEN_PROGRAM, false), // Quote Token Program (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::EVENT_AUTHORITY, false), // Event Authority (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::BONK, false), // Program (readonly)
+            ), // Account 11: Base Token Program (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::TOKEN_PROGRAM, false), // Account 12: Quote Token Program (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::EVENT_AUTHORITY, false), // Account 13: Event Authority (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::BONK, false), // Account 14: Program (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::SYSTEM_PROGRAM, false), // Account 15: System Program (readonly)
+            solana_sdk::instruction::AccountMeta::new(protocol_params.fee_destination_1, false), // Account 16: Fee Destination 1 (from trade event)
+            solana_sdk::instruction::AccountMeta::new(protocol_params.fee_destination_2, false), // Account 17: Fee Destination 2 (from trade event)
         ];
         // Create instruction data
         let mut data = vec![];
@@ -246,24 +249,27 @@ impl BonkInstructionBuilder {
 
         // Create sell instruction
         let accounts = vec![
-            solana_sdk::instruction::AccountMeta::new(params.payer.pubkey(), true), // Payer (signer)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::AUTHORITY, false), // Authority (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::GLOBAL_CONFIG, false), // Global Config (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::PLATFORM_CONFIG, false), // Platform Config (readonly)
-            solana_sdk::instruction::AccountMeta::new(pool_state, false), // Pool State
-            solana_sdk::instruction::AccountMeta::new(user_base_token_account, false), // User Base Token
-            solana_sdk::instruction::AccountMeta::new(user_quote_token_account, false), // User Quote Token
-            solana_sdk::instruction::AccountMeta::new(base_vault_account, false), // Base Vault
-            solana_sdk::instruction::AccountMeta::new(quote_vault_account, false), // Quote Vault
-            solana_sdk::instruction::AccountMeta::new_readonly(params.mint, false), // Base Token Mint (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::WSOL_TOKEN_ACCOUNT, false), // Quote Token Mint (readonly)
+            solana_sdk::instruction::AccountMeta::new(params.payer.pubkey(), true), // Account 0: Payer (signer)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::AUTHORITY, false), // Account 1: Authority (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::GLOBAL_CONFIG, false), // Account 2: Global Config (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::PLATFORM_CONFIG, false), // Account 3: Platform Config (readonly)
+            solana_sdk::instruction::AccountMeta::new(pool_state, false), // Account 4: Pool State
+            solana_sdk::instruction::AccountMeta::new(user_base_token_account, false), // Account 5: User Base Token
+            solana_sdk::instruction::AccountMeta::new(user_quote_token_account, false), // Account 6: User Quote Token
+            solana_sdk::instruction::AccountMeta::new(base_vault_account, false), // Account 7: Base Vault
+            solana_sdk::instruction::AccountMeta::new(quote_vault_account, false), // Account 8: Quote Vault
+            solana_sdk::instruction::AccountMeta::new_readonly(params.mint, false), // Account 9: Base Token Mint (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::WSOL_TOKEN_ACCOUNT, false), // Account 10: Quote Token Mint (readonly)
             solana_sdk::instruction::AccountMeta::new_readonly(
                 protocol_params.mint_token_program,
                 false,
-            ), // Base Token Program (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::TOKEN_PROGRAM, false), // Quote Token Program (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::EVENT_AUTHORITY, false), // Event Authority (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::BONK, false), // Program (readonly)
+            ), // Account 11: Base Token Program (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::TOKEN_PROGRAM, false), // Account 12: Quote Token Program (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::EVENT_AUTHORITY, false), // Account 13: Event Authority (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::BONK, false), // Account 14: Program (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::SYSTEM_PROGRAM, false), // Account 15: System Program (readonly)
+            solana_sdk::instruction::AccountMeta::new(protocol_params.fee_destination_1, false), // Account 16: Fee Destination 1 (from trade event)
+            solana_sdk::instruction::AccountMeta::new(protocol_params.fee_destination_2, false), // Account 17: Fee Destination 2 (from trade event)
         ];
 
         // Create instruction data
