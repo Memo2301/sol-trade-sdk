@@ -102,7 +102,10 @@ impl TradeExecutor for GenericTradeExecutor {
         if params.data_size_limit == 0 {
             params.data_size_limit = MAX_LOADED_ACCOUNTS_DATA_SIZE_LIMIT;
         }
-        let timer = TradeTimer::new("Build buy transaction");
+        let mut timer = TradeTimer::new("Build buy transaction");
+
+        // Store RPC for later analysis
+        let rpc_for_analysis = params.rpc.clone();
 
         // 验证参数 - 转换为BuyParams进行验证
         let buy_params = BuyParams {
@@ -131,9 +134,9 @@ impl TradeExecutor for GenericTradeExecutor {
             None => instructions,
         };
 
-        timer.finish();
+        timer.stage("Jito execution");
 
-        // 并行执行交易
+        // 并行执行交易 (Jito)
         parallel_execute_with_tips(
             params.swqos_clients,
             params.payer.clone(),
@@ -149,21 +152,36 @@ impl TradeExecutor for GenericTradeExecutor {
         )
         .await?;
 
-        // For parallel execution, return estimated trade result
-        // Real analysis would require modifying the parallel execution flow
-        let estimated_tokens = (params.sol_amount as f64 * 0.95) / 0.001; // Rough estimate
-        let estimated_price = (params.sol_amount as f64 / 1_000_000_000.0) / estimated_tokens;
+        timer.stage("Jito transaction analysis");
 
-        let trade_result = TradeResult {
-            signature: "PARALLEL_EXECUTION".to_string(),
-            tokens_received: estimated_tokens,
-            entry_price: estimated_price,
-            sol_spent: params.sol_amount as f64 / 1_000_000_000.0,
-            token_mint: params.mint.to_string(),
-            wallet_address: params.payer.pubkey().to_string(),
-            analysis_duration_ms: 0, // No analysis for parallel execution
-        };
+        // REAL TRANSACTION ANALYSIS: Find the successful transaction and analyze it
+        // Wait a moment for transaction to be processed
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        
+        // Get RPC client for transaction analysis
+        let rpc = rpc_for_analysis.ok_or_else(|| anyhow::anyhow!("RPC client not available for transaction analysis"))?;
+        
+        // Get recent signatures for the wallet to find our transaction
+        let wallet_pubkey = params.payer.pubkey();
+        let recent_signatures = rpc.get_signatures_for_address(&wallet_pubkey).await
+            .map_err(|e| anyhow::anyhow!("Failed to get recent signatures: {}", e))?;
 
+        // Find the most recent signature (should be our transaction)
+        let signature = recent_signatures.first()
+            .ok_or_else(|| anyhow::anyhow!("No recent transactions found for wallet"))?
+            .signature.parse()
+            .map_err(|e| anyhow::anyhow!("Failed to parse signature: {}", e))?;
+
+        // Do real transaction analysis just like the standard buy method
+        let trade_result = TradeResult::analyze_transaction(
+            &rpc,
+            &signature,
+            &params.mint,
+            &params.payer.pubkey(),
+            params.sol_amount as f64 / 1_000_000_000.0, // Convert lamports to SOL
+        ).await?;
+
+        timer.finish();
         Ok(trade_result)
     }
 
