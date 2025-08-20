@@ -25,7 +25,7 @@ pub struct JitoClient {
 
 #[async_trait::async_trait]
 impl SwqosClientTrait for JitoClient {
-    async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<()> {
+    async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<String> {
         self.send_transaction(trade_type, transaction).await
     }
 
@@ -61,7 +61,7 @@ impl JitoClient {
         Self { rpc_client: Arc::new(rpc_client), endpoint, auth_token, http_client }
     }
 
-    pub async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<()> {
+    pub async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<String> {
         let total_start = Instant::now();
         
         // Encode transaction
@@ -131,7 +131,7 @@ impl JitoClient {
             total_time.as_secs_f64() * 1000.0,
             if submit_success { "SUCCESS" } else { "FAILED" });
 
-        Ok(())
+        Ok(signature.to_string())
     }
 
     pub async fn send_transactions(&self, trade_type: TradeType, transactions: &Vec<VersionedTransaction>) -> Result<()> {

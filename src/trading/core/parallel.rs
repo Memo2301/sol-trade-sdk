@@ -30,9 +30,9 @@ pub async fn parallel_execute_with_tips(
     middleware_manager: Option<Arc<MiddlewareManager>>,
     protocol_name: String,
     is_buy: bool,
-) -> Result<()> {
+) -> Result<String> {
     let cores = core_affinity::get_core_ids().unwrap();
-    let mut handles: Vec<JoinHandle<Result<()>>> = vec![];
+    let mut handles: Vec<JoinHandle<Result<String>>> = vec![];
 
     for i in 0..swqos_clients.len() {
         let swqos_client = swqos_clients[i].clone();
@@ -116,31 +116,31 @@ pub async fn parallel_execute_with_tips(
 
             timer.stage(format!("Submit tx: {:?}", swqos_client.get_swqos_type()));
 
-            swqos_client.send_transaction(trade_type, &transaction).await?;
+            let signature = swqos_client.send_transaction(trade_type, &transaction).await?;
 
             timer.finish();
-            Ok::<(), anyhow::Error>(())
+            Ok::<String, anyhow::Error>(signature)
         });
 
         handles.push(handle);
     }
 
-    // 等待所有任务完成
+    // 等待任务完成，返回第一个成功的签名
     let mut errors = Vec::new();
     for handle in handles {
         match handle.await {
-            Ok(Ok(_)) => (),
+            Ok(Ok(signature)) => {
+                // Return the first successful signature
+                return Ok(signature);
+            },
             Ok(Err(e)) => errors.push(format!("Task error: {}", e)),
             Err(e) => errors.push(format!("Join error: {}", e)),
         }
     }
 
-    if !errors.is_empty() {
-        for error in &errors {
-            println!("{}", error);
-        }
-        return Err(anyhow!("Some tasks failed: {:?}", errors));
+    // If we get here, all tasks failed
+    for error in &errors {
+        println!("{}", error);
     }
-
-    Ok(())
+    Err(anyhow!("All parallel execution tasks failed: {:?}", errors))
 }

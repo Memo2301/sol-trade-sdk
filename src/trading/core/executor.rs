@@ -136,8 +136,8 @@ impl TradeExecutor for GenericTradeExecutor {
 
         timer.stage("Jito execution");
 
-        // 并行执行交易 (Jito)
-        parallel_execute_with_tips(
+        // 并行执行交易 (Jito) - capture the actual transaction signature
+        let actual_signature = parallel_execute_with_tips(
             params.swqos_clients,
             params.payer.clone(),
             final_instructions,
@@ -154,23 +154,16 @@ impl TradeExecutor for GenericTradeExecutor {
 
         timer.stage("Jito transaction analysis");
 
-        // REAL TRANSACTION ANALYSIS: Find the successful transaction and analyze it
+        // REAL TRANSACTION ANALYSIS: Use the actual signature from the successful transaction
         // Wait a moment for transaction to be processed
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         
         // Get RPC client for transaction analysis
         let rpc = rpc_for_analysis.ok_or_else(|| anyhow::anyhow!("RPC client not available for transaction analysis"))?;
         
-        // Get recent signatures for the wallet to find our transaction
-        let wallet_pubkey = params.payer.pubkey();
-        let recent_signatures = rpc.get_signatures_for_address(&wallet_pubkey).await
-            .map_err(|e| anyhow::anyhow!("Failed to get recent signatures: {}", e))?;
-
-        // Find the most recent signature (should be our transaction)
-        let signature = recent_signatures.first()
-            .ok_or_else(|| anyhow::anyhow!("No recent transactions found for wallet"))?
-            .signature.parse()
-            .map_err(|e| anyhow::anyhow!("Failed to parse signature: {}", e))?;
+        // Parse the signature returned from Jito execution
+        let signature = actual_signature.parse()
+            .map_err(|e| anyhow::anyhow!("Failed to parse signature from Jito execution: {}", e))?;
 
         // Do real transaction analysis just like the standard buy method
         let trade_result = TradeResult::analyze_transaction(

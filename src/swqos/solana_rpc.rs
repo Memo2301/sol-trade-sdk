@@ -18,7 +18,7 @@ pub struct SolRpcClient {
 
 #[async_trait::async_trait]
 impl SwqosClientTrait for SolRpcClient {
-    async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<()> {
+    async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<String> {
         let signature = self.rpc_client.send_transaction_with_config(transaction, RpcSendTransactionConfig{
             skip_preflight: true,
             preflight_commitment: Some(CommitmentLevel::Processed),
@@ -35,7 +35,7 @@ impl SwqosClientTrait for SolRpcClient {
         println!(" signature: {:?}", signature);
         println!(" rpc{}确认: {:?}", trade_type, start_time.elapsed());
 
-        Ok(())
+        Ok(signature.to_string())
     }
 
     async fn send_transactions(&self, trade_type: TradeType, transactions: &Vec<VersionedTransaction>) -> Result<()> {

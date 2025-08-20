@@ -25,7 +25,7 @@ pub struct ZeroSlotClient {
 
 #[async_trait::async_trait]
 impl SwqosClientTrait for ZeroSlotClient {
-    async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<()> {
+    async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<String> {
         self.send_transaction(trade_type, transaction).await
     }
 
@@ -58,7 +58,7 @@ impl ZeroSlotClient {
         Self { rpc_client: Arc::new(rpc_client), endpoint, auth_token, http_client }
     }
 
-    pub async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<()> {
+    pub async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<String> {
         let start_time = Instant::now();
         let (content, signature) = serialize_transaction_and_encode(transaction, UiTransactionEncoding::Base64).await?;
 
@@ -104,7 +104,7 @@ impl ZeroSlotClient {
 
         println!(" 0slot{}确认: {:?}", trade_type, start_time.elapsed());
 
-        Ok(())
+        Ok(signature.to_string())
     }
 
     pub async fn send_transactions(&self, trade_type: TradeType, transactions: &Vec<VersionedTransaction>) -> Result<()> {
