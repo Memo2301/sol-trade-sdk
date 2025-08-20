@@ -5,7 +5,7 @@ use solana_streamer_sdk::streaming::event_parser::protocols::pumpswap::{
     PumpSwapBuyEvent, PumpSwapSellEvent,
 };
 use solana_streamer_sdk::streaming::event_parser::protocols::raydium_amm_v4::types::AmmInfo;
-use solana_streamer_sdk::streaming::event_parser::protocols::raydium_amm_v4::RaydiumAmmV4SwapEvent;
+
 use std::sync::Arc;
 
 use super::traits::ProtocolParams;

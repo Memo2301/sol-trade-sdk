@@ -1,6 +1,7 @@
 use crate::trading::middleware::traits::InstructionMiddleware;
 use anyhow::Result;
-use solana_sdk::{instruction::Instruction, pubkey::Pubkey, system_instruction, signature::{Keypair, Signer}};
+use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signature::{Keypair, Signer}};
+use solana_system_interface::instruction as system_instruction;
 use std::sync::Arc;
 
 /// Logging middleware - Records instruction information
