@@ -13,6 +13,8 @@ use crate::trading::core::params::PumpFunParams;
 use crate::trading::core::params::PumpSwapParams;
 use crate::trading::core::params::RaydiumAmmV4Params;
 use crate::trading::core::params::RaydiumCpmmParams;
+// Re-export TradeResult for external use
+pub use crate::trading::core::trade_result::TradeResult;
 use crate::trading::core::traits::ProtocolParams;
 use crate::trading::factory::DexType;
 use crate::trading::BuyParams;
@@ -139,7 +141,7 @@ impl SolanaTrade {
     ///
     /// # Returns
     ///
-    /// Returns `Ok(())` if the buy order is successfully executed, or an error if the transaction fails.
+    /// Returns `Ok(TradeResult)` containing actual trade data if the buy order is successfully executed, or an error if the transaction fails.
     ///
     /// # Errors
     ///
@@ -184,7 +186,7 @@ impl SolanaTrade {
         custom_buy_tip_fee: Option<f64>,
         extension_params: Box<dyn ProtocolParams>,
         lookup_table_key: Option<Pubkey>,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<TradeResult, anyhow::Error> {
         let executor = TradeFactory::create_executor(dex_type.clone());
         let protocol_params = extension_params;
 

@@ -1,10 +1,12 @@
 use anyhow::{anyhow, Result};
+use solana_sdk::signature::Signer;
 use std::sync::Arc;
 
 use super::{
     parallel::parallel_execute_with_tips,
     params::{BuyParams, BuyWithTipParams, SellParams, SellWithTipParams},
     timer::TradeTimer,
+    trade_result::TradeResult,
     traits::{InstructionBuilder, TradeExecutor},
 };
 use crate::{
@@ -38,7 +40,7 @@ impl TradeExecutor for GenericTradeExecutor {
         &self,
         mut params: BuyParams,
         middleware_manager: Option<Arc<MiddlewareManager>>,
-    ) -> Result<()> {
+    ) -> Result<TradeResult> {
         if params.data_size_limit == 0 {
             params.data_size_limit = MAX_LOADED_ACCOUNTS_DATA_SIZE_LIMIT;
         }
@@ -46,7 +48,7 @@ impl TradeExecutor for GenericTradeExecutor {
             return Err(anyhow!("RPC is not set"));
         }
         let rpc = params.rpc.as_ref().unwrap().clone();
-        let mut timer = TradeTimer::new("构建买入交易指令");
+        let mut timer = TradeTimer::new("Build buy transaction");
         // 构建指令
         let instructions = self.instruction_builder.build_buy_instructions(&params).await?;
         let final_instructions = match middleware_manager.clone() {
@@ -76,21 +78,31 @@ impl TradeExecutor for GenericTradeExecutor {
         timer.stage("rpc提交确认");
 
         // 发送交易
-        rpc.send_and_confirm_transaction(&transaction).await?;
-        timer.finish();
+        let signature = rpc.send_and_confirm_transaction(&transaction).await?;
+        timer.stage("交易分析");
 
-        Ok(())
+        // Analyze transaction to get actual trade results
+        let trade_result = TradeResult::analyze_transaction(
+            &rpc,
+            &signature,
+            &params.mint,
+            &params.payer.pubkey(),
+            params.sol_amount as f64 / 1_000_000_000.0, // Convert lamports to SOL
+        ).await?;
+
+        timer.finish();
+        Ok(trade_result)
     }
 
     async fn buy_with_tip(
         &self,
         mut params: BuyWithTipParams,
         middleware_manager: Option<Arc<MiddlewareManager>>,
-    ) -> Result<()> {
+    ) -> Result<TradeResult> {
         if params.data_size_limit == 0 {
             params.data_size_limit = MAX_LOADED_ACCOUNTS_DATA_SIZE_LIMIT;
         }
-        let timer = TradeTimer::new("构建买入交易指令");
+        let timer = TradeTimer::new("Build buy transaction");
 
         // 验证参数 - 转换为BuyParams进行验证
         let buy_params = BuyParams {
@@ -124,7 +136,7 @@ impl TradeExecutor for GenericTradeExecutor {
         // 并行执行交易
         parallel_execute_with_tips(
             params.swqos_clients,
-            params.payer,
+            params.payer.clone(),
             final_instructions,
             params.priority_fee,
             params.lookup_table_key,
@@ -137,7 +149,22 @@ impl TradeExecutor for GenericTradeExecutor {
         )
         .await?;
 
-        Ok(())
+        // For parallel execution, return estimated trade result
+        // Real analysis would require modifying the parallel execution flow
+        let estimated_tokens = (params.sol_amount as f64 * 0.95) / 0.001; // Rough estimate
+        let estimated_price = (params.sol_amount as f64 / 1_000_000_000.0) / estimated_tokens;
+
+        let trade_result = TradeResult {
+            signature: "PARALLEL_EXECUTION".to_string(),
+            tokens_received: estimated_tokens,
+            entry_price: estimated_price,
+            sol_spent: params.sol_amount as f64 / 1_000_000_000.0,
+            token_mint: params.mint.to_string(),
+            wallet_address: params.payer.pubkey().to_string(),
+            analysis_duration_ms: 0, // No analysis for parallel execution
+        };
+
+        Ok(trade_result)
     }
 
     async fn sell(

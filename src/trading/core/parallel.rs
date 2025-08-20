@@ -48,7 +48,7 @@ pub async fn parallel_execute_with_tips(
             core_affinity::set_for_current(core_id);
 
             let mut timer =
-                TradeTimer::new(format!("构建交易指令: {:?}", swqos_client.get_swqos_type()));
+                TradeTimer::new(format!("Build tx: {:?}", swqos_client.get_swqos_type()));
 
             let transaction = if matches!(trade_type, TradeType::Sell)
                 && swqos_client.get_swqos_type() == SwqosType::Default
@@ -114,7 +114,7 @@ pub async fn parallel_execute_with_tips(
                 .await?
             };
 
-            timer.stage(format!("提交交易指令: {:?}", swqos_client.get_swqos_type()));
+            timer.stage(format!("Submit tx: {:?}", swqos_client.get_swqos_type()));
 
             swqos_client.send_transaction(trade_type, &transaction).await?;
 

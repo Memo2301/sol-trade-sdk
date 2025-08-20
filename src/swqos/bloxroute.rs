@@ -60,7 +60,7 @@ impl BloxrouteClient {
     pub async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<()> {
         let start_time = Instant::now();
         let (content, signature) = serialize_transaction_and_encode(transaction, UiTransactionEncoding::Base64).await?;
-        println!(" 交易编码base64: {:?}", start_time.elapsed());
+
 
         let body = serde_json::json!({
             "transaction": {
@@ -102,7 +102,7 @@ impl BloxrouteClient {
 
     pub async fn send_transactions(&self, trade_type: TradeType, transactions: &Vec<VersionedTransaction>) -> Result<()> {
         let start_time = Instant::now();
-        println!(" 交易编码base64: {:?}", start_time.elapsed());
+
 
         let body = serde_json::json!({
             "entries":  transactions

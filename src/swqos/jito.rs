@@ -62,9 +62,12 @@ impl JitoClient {
     }
 
     pub async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<()> {
-        let start_time = Instant::now();
+        let total_start = Instant::now();
+        
+        // Encode transaction
+        let encode_start = Instant::now();
         let (content, signature) = serialize_transaction_and_encode(transaction, UiTransactionEncoding::Base64).await?;
-        println!(" 交易编码base64: {:?}", start_time.elapsed());
+        let encode_time = encode_start.elapsed();
 
         let request_body = serde_json::to_string(&json!({
             "id": 1,
@@ -78,6 +81,8 @@ impl JitoClient {
             ]
         }))?;
 
+        // Submit transaction
+        let submit_start = Instant::now();
         let endpoint = if self.auth_token.is_empty() {
             format!("{}/api/v1/transactions", self.endpoint)
         } else {
@@ -97,21 +102,34 @@ impl JitoClient {
             .text()
             .await?;
 
+        let submit_time = submit_start.elapsed();
+        let mut submit_success = false;
+
         if let Ok(response_json) = serde_json::from_str::<serde_json::Value>(&response_text) {
             if response_json.get("result").is_some() {
-                println!(" jito{}提交: {:?}", trade_type, start_time.elapsed());
+                submit_success = true;
             } else if let Some(_error) = response_json.get("error") {
-                eprintln!(" jito{}提交失败: {:?}", trade_type, _error);
+                // Error will be logged in consolidated message
             }
         }
 
-        let start_time: Instant = Instant::now();
+        // Confirm transaction
+        let confirm_start = Instant::now();
         match poll_transaction_confirmation(&self.rpc_client, signature).await {
             Ok(_) => (),
             Err(_) => (),
         }
+        let confirm_time = confirm_start.elapsed();
+        let total_time = total_start.elapsed();
 
-        println!(" jito{}确认: {:?}", trade_type, start_time.elapsed());
+        // Consolidated one-line log
+        println!("Jito {} execution: encode: {:.1}ms, submit: {:.1}ms, confirm: {:.1}ms, total: {:.1}ms [{}]", 
+            trade_type, 
+            encode_time.as_secs_f64() * 1000.0, 
+            submit_time.as_secs_f64() * 1000.0, 
+            confirm_time.as_secs_f64() * 1000.0, 
+            total_time.as_secs_f64() * 1000.0,
+            if submit_success { "SUCCESS" } else { "FAILED" });
 
         Ok(())
     }
@@ -150,9 +168,9 @@ impl JitoClient {
 
         if let Ok(response_json) = serde_json::from_str::<serde_json::Value>(&response_text) {
             if response_json.get("result").is_some() {
-                println!(" jito{}提交: {:?}", trade_type, start_time.elapsed());
+                println!("Jito {} bundle submitted: {:.1}ms [SUCCESS]", trade_type, start_time.elapsed().as_secs_f64() * 1000.0);
             } else if let Some(_error) = response_json.get("error") {
-                eprintln!(" jito{}提交失败: {:?}", trade_type, _error);
+                println!("Jito {} bundle submitted: {:.1}ms [FAILED]", trade_type, start_time.elapsed().as_secs_f64() * 1000.0);
             }
         }
 
