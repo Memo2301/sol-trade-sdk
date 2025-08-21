@@ -187,11 +187,42 @@ impl SolanaTrade {
         extension_params: Box<dyn ProtocolParams>,
         lookup_table_key: Option<Pubkey>,
     ) -> Result<TradeResult, anyhow::Error> {
+        self.buy_with_priority_fee(
+            dex_type,
+            mint,
+            creator,
+            sol_amount,
+            slippage_basis_points,
+            recent_blockhash,
+            custom_buy_tip_fee,
+            extension_params,
+            lookup_table_key,
+            None, // Use default priority fee
+        ).await
+    }
+
+    /// Execute a buy order with custom priority fee for dynamic fee management
+    pub async fn buy_with_priority_fee(
+        &self,
+        dex_type: DexType,
+        mint: Pubkey,
+        creator: Option<Pubkey>,
+        sol_amount: u64,
+        slippage_basis_points: Option<u64>,
+        recent_blockhash: Hash,
+        custom_buy_tip_fee: Option<f64>,
+        extension_params: Box<dyn ProtocolParams>,
+        lookup_table_key: Option<Pubkey>,
+        custom_priority_fee: Option<PriorityFee>,
+    ) -> Result<TradeResult, anyhow::Error> {
         let executor = TradeFactory::create_executor(dex_type.clone());
         let protocol_params = extension_params;
 
         let final_lookup_table_key = lookup_table_key.or(self.trade_config.lookup_table_key);
 
+        // Use custom priority fee if provided, otherwise use default from trade config
+        let base_priority_fee = custom_priority_fee.unwrap_or_else(|| self.trade_config.priority_fee.clone());
+        
         let buy_params = BuyParams {
             rpc: Some(self.rpc.clone()),
             payer: self.payer.clone(),
@@ -199,7 +230,7 @@ impl SolanaTrade {
             creator: creator.unwrap_or(Pubkey::default()),
             sol_amount: sol_amount,
             slippage_basis_points: slippage_basis_points,
-            priority_fee: self.trade_config.priority_fee.clone(),
+            priority_fee: base_priority_fee.clone(),
             lookup_table_key: final_lookup_table_key,
             recent_blockhash,
             data_size_limit: 0,
@@ -305,11 +336,44 @@ impl SolanaTrade {
         extension_params: Box<dyn ProtocolParams>,
         lookup_table_key: Option<Pubkey>,
     ) -> Result<TradeResult, anyhow::Error> {
+        self.sell_with_priority_fee(
+            dex_type,
+            mint,
+            creator,
+            token_amount,
+            slippage_basis_points,
+            recent_blockhash,
+            custom_buy_tip_fee,
+            with_tip,
+            extension_params,
+            lookup_table_key,
+            None, // Use default priority fee
+        ).await
+    }
+
+    /// Execute a sell order with custom priority fee for dynamic fee management
+    pub async fn sell_with_priority_fee(
+        &self,
+        dex_type: DexType,
+        mint: Pubkey,
+        creator: Option<Pubkey>,
+        token_amount: u64,
+        slippage_basis_points: Option<u64>,
+        recent_blockhash: Hash,
+        custom_buy_tip_fee: Option<f64>,
+        with_tip: bool,
+        extension_params: Box<dyn ProtocolParams>,
+        lookup_table_key: Option<Pubkey>,
+        custom_priority_fee: Option<PriorityFee>,
+    ) -> Result<TradeResult, anyhow::Error> {
         let executor = TradeFactory::create_executor(dex_type.clone());
         let protocol_params = extension_params;
 
         let final_lookup_table_key = lookup_table_key.or(self.trade_config.lookup_table_key);
 
+        // Use custom priority fee if provided, otherwise use default from trade config
+        let base_priority_fee = custom_priority_fee.unwrap_or_else(|| self.trade_config.priority_fee.clone());
+        
         let sell_params = SellParams {
             rpc: Some(self.rpc.clone()),
             payer: self.payer.clone(),
@@ -317,7 +381,7 @@ impl SolanaTrade {
             creator: creator.unwrap_or(Pubkey::default()),
             token_amount: Some(token_amount),
             slippage_basis_points: slippage_basis_points,
-            priority_fee: self.trade_config.priority_fee.clone(),
+            priority_fee: base_priority_fee.clone(),
             lookup_table_key: final_lookup_table_key,
             recent_blockhash,
             protocol_params: protocol_params.clone(),
