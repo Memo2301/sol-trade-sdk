@@ -19,10 +19,10 @@ pub trait TradeExecutor: Send + Sync {
     async fn buy_with_tip(&self, params: BuyWithTipParams, middleware_manager: Option<Arc<MiddlewareManager>>) -> Result<TradeResult>;
 
     /// 执行卖出交易
-    async fn sell(&self, params: SellParams, middleware_manager: Option<Arc<MiddlewareManager>>) -> Result<()>;
+    async fn sell(&self, params: SellParams, middleware_manager: Option<Arc<MiddlewareManager>>) -> Result<TradeResult>;
 
     /// 使用MEV服务执行卖出交易
-    async fn sell_with_tip(&self, params: SellWithTipParams, middleware_manager: Option<Arc<MiddlewareManager>>) -> Result<()>;
+    async fn sell_with_tip(&self, params: SellWithTipParams, middleware_manager: Option<Arc<MiddlewareManager>>) -> Result<TradeResult>;
 
     /// 获取协议名称
     fn protocol_name(&self) -> &'static str;

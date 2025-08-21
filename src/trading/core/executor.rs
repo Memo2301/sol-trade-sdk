@@ -182,7 +182,7 @@ impl TradeExecutor for GenericTradeExecutor {
         &self,
         params: SellParams,
         middleware_manager: Option<Arc<MiddlewareManager>>,
-    ) -> Result<()> {
+    ) -> Result<TradeResult> {
         if params.rpc.is_none() {
             return Err(anyhow!("RPC is not set"));
         }
@@ -216,19 +216,40 @@ impl TradeExecutor for GenericTradeExecutor {
         .await?;
         timer.stage("卖出交易签名");
 
-        // 发送交易
-        rpc.send_and_confirm_transaction(&transaction).await?;
-        timer.finish();
+        // 发送交易 - capture the signature for analysis
+        let signature = rpc.send_and_confirm_transaction(&transaction).await?;
+        timer.stage("Transaction analysis");
 
-        Ok(())
+        // SELL TRANSACTION ANALYSIS: Wait for transaction processing
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+        // Calculate expected tokens sold and original entry price (these would need to be passed in)
+        let expected_tokens_sold = params.token_amount.unwrap_or(0) as f64 / 1_000_000.0; // Convert to UI format
+        let original_entry_price = 0.0; // TODO: This should be passed from the sell execution
+
+        // Perform sell transaction analysis 
+        let trade_result = TradeResult::analyze_sell_transaction(
+            &rpc,
+            &signature,
+            &params.mint,
+            &params.payer.pubkey(),
+            expected_tokens_sold,
+            original_entry_price,
+        ).await?;
+
+        timer.finish();
+        Ok(trade_result)
     }
 
     async fn sell_with_tip(
         &self,
         params: SellWithTipParams,
         middleware_manager: Option<Arc<MiddlewareManager>>,
-    ) -> Result<()> {
-        let timer = TradeTimer::new("构建卖出交易指令");
+    ) -> Result<TradeResult> {
+        let mut timer = TradeTimer::new("Build sell transaction");
+
+        // Store RPC for later analysis
+        let rpc_for_analysis = params.rpc.clone();
 
         // 转换为SellParams进行指令构建
         let sell_params = SellParams {
@@ -256,12 +277,12 @@ impl TradeExecutor for GenericTradeExecutor {
             None => instructions,
         };
 
-        timer.finish();
+        timer.stage("Jito execution");
 
-        // 并行执行交易
-        parallel_execute_with_tips(
+        // 并行执行交易 (Jito) - capture the actual transaction signature
+        let actual_signature = parallel_execute_with_tips(
             params.swqos_clients,
-            params.payer,
+            params.payer.clone(),
             final_instructions,
             params.priority_fee,
             params.lookup_table_key,
@@ -274,7 +295,35 @@ impl TradeExecutor for GenericTradeExecutor {
         )
         .await?;
 
-        Ok(())
+        timer.stage("Jito transaction analysis");
+
+        // SELL TRANSACTION ANALYSIS: Use the actual signature from the successful transaction
+        // Wait a moment for transaction to be processed
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        
+        // Get RPC client for transaction analysis
+        let rpc = rpc_for_analysis.ok_or_else(|| anyhow::anyhow!("RPC client not available for transaction analysis"))?;
+        
+        // Parse the signature returned from Jito execution
+        let signature = actual_signature.parse()
+            .map_err(|e| anyhow::anyhow!("Failed to parse signature from Jito execution: {}", e))?;
+
+        // Calculate expected tokens sold and original entry price (these would need to be passed in)
+        let expected_tokens_sold = params.token_amount.unwrap_or(0) as f64 / 1_000_000.0; // Convert to UI format
+        let original_entry_price = 0.0; // TODO: This should be passed from the sell execution
+
+        // Perform sell transaction analysis 
+        let trade_result = TradeResult::analyze_sell_transaction(
+            &rpc,
+            &signature,
+            &params.mint,
+            &params.payer.pubkey(),
+            expected_tokens_sold,
+            original_entry_price,
+        ).await?;
+
+        timer.finish();
+        Ok(trade_result)
     }
 
     fn protocol_name(&self) -> &'static str {

@@ -52,6 +52,7 @@ impl InstructionBuilder for PumpSwapInstructionBuilder {
             quote_mint,
             pool_base_token_reserves,
             pool_quote_token_reserves,
+            protocol_params.creator,
             protocol_params.auto_handle_wsol,
         )
         .await
@@ -77,6 +78,7 @@ impl InstructionBuilder for PumpSwapInstructionBuilder {
             quote_mint,
             pool_base_token_reserves,
             pool_quote_token_reserves,
+            protocol_params.creator,
             protocol_params.auto_handle_wsol,
         )
         .await
@@ -93,6 +95,7 @@ impl PumpSwapInstructionBuilder {
         quote_mint: Pubkey,
         pool_base_token_reserves: u64,
         pool_quote_token_reserves: u64,
+        creator: Pubkey,
         auto_handle_wsol: bool,
     ) -> Result<Vec<Instruction>> {
         if params.rpc.is_none() {
@@ -108,7 +111,7 @@ impl PumpSwapInstructionBuilder {
                 params.slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE),
                 pool_base_token_reserves,
                 pool_quote_token_reserves,
-                &params.creator,
+                &creator,
             )
             .unwrap();
             // base_amount_out
@@ -121,7 +124,7 @@ impl PumpSwapInstructionBuilder {
                 params.slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE),
                 pool_base_token_reserves,
                 pool_quote_token_reserves,
-                &params.creator,
+                &creator,
             )
             .unwrap();
             // min_quote_amount_out
@@ -203,8 +206,8 @@ impl PumpSwapInstructionBuilder {
             &accounts::TOKEN_PROGRAM,
         ));
 
-        let coin_creator_vault_ata = coin_creator_vault_ata(params.creator, quote_mint);
-        let coin_creator_vault_authority = coin_creator_vault_authority(params.creator);
+        let coin_creator_vault_ata = coin_creator_vault_ata(creator, quote_mint);
+        let coin_creator_vault_authority = coin_creator_vault_authority(creator);
         let fee_recipient_ata = fee_recipient_ata(accounts::FEE_RECIPIENT, quote_mint);
 
         // Create buy instruction
@@ -289,6 +292,7 @@ impl PumpSwapInstructionBuilder {
         quote_mint: Pubkey,
         pool_base_token_reserves: u64,
         pool_quote_token_reserves: u64,
+        creator: Pubkey,
         auto_handle_wsol: bool,
     ) -> Result<Vec<Instruction>> {
         if params.rpc.is_none() {
@@ -309,7 +313,7 @@ impl PumpSwapInstructionBuilder {
                 params.slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE),
                 pool_base_token_reserves,
                 pool_quote_token_reserves,
-                &params.creator,
+                &creator,
             )
             .unwrap();
             // base_amount_in
@@ -322,7 +326,7 @@ impl PumpSwapInstructionBuilder {
                 params.slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE),
                 pool_base_token_reserves,
                 pool_quote_token_reserves,
-                &params.creator,
+                &creator,
             )
             .unwrap();
             // max_quote_amount_in
@@ -331,8 +335,8 @@ impl PumpSwapInstructionBuilder {
             sol_amount = result.base;
         }
 
-        let coin_creator_vault_ata = coin_creator_vault_ata(params.creator, quote_mint);
-        let coin_creator_vault_authority = coin_creator_vault_authority(params.creator);
+        let coin_creator_vault_ata = coin_creator_vault_ata(creator, quote_mint);
+        let coin_creator_vault_authority = coin_creator_vault_authority(creator);
         let fee_recipient_ata = fee_recipient_ata(accounts::FEE_RECIPIENT, quote_mint);
 
         let user_base_token_account = spl_associated_token_account::get_associated_token_address(

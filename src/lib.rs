@@ -304,7 +304,7 @@ impl SolanaTrade {
         with_tip: bool,
         extension_params: Box<dyn ProtocolParams>,
         lookup_table_key: Option<Pubkey>,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<TradeResult, anyhow::Error> {
         let executor = TradeFactory::create_executor(dex_type.clone());
         let protocol_params = extension_params;
 
@@ -431,7 +431,7 @@ impl SolanaTrade {
         with_tip: bool,
         extension_params: Box<dyn ProtocolParams>,
         lookup_table_key: Option<Pubkey>,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<TradeResult, anyhow::Error> {
         if percent == 0 || percent > 100 {
             return Err(anyhow::anyhow!("Percentage must be between 1 and 100"));
         }

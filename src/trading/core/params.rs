@@ -159,6 +159,9 @@ pub struct PumpSwapParams {
     pub pool_base_token_reserves: u64,
     /// Quote token reserves in the pool
     pub pool_quote_token_reserves: u64,
+    /// Token creator address (coin_creator from PumpSwap events)
+    /// This is required for deriving the correct coin_creator_vault_authority
+    pub creator: Pubkey,
     /// Automatically handle WSOL wrapping
     /// When true, automatically handles wrapping and unwrapping operations between SOL and WSOL
     pub auto_handle_wsol: bool,
@@ -172,6 +175,7 @@ impl PumpSwapParams {
             quote_mint: event.quote_mint,
             pool_base_token_reserves: event.pool_base_token_reserves,
             pool_quote_token_reserves: event.pool_quote_token_reserves,
+            creator: event.coin_creator,
             auto_handle_wsol: true,
         }
     }
@@ -183,6 +187,7 @@ impl PumpSwapParams {
             quote_mint: event.quote_mint,
             pool_base_token_reserves: event.pool_base_token_reserves,
             pool_quote_token_reserves: event.pool_quote_token_reserves,
+            creator: event.coin_creator,
             auto_handle_wsol: true,
         }
     }
@@ -200,6 +205,7 @@ impl PumpSwapParams {
             quote_mint: pool_data.quote_mint,
             pool_base_token_reserves: pool_base_token_reserves,
             pool_quote_token_reserves: pool_quote_token_reserves,
+            creator: pool_data.coin_creator, // Extract creator from pool data
             auto_handle_wsol: true,
         })
     }
