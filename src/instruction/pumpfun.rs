@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use solana_sdk::instruction::Instruction;
 use spl_associated_token_account::{
-    get_associated_token_address, instruction::create_associated_token_account,
+    get_associated_token_address, instruction::create_associated_token_account_idempotent,
 };
 use spl_token::instruction::close_account;
 
@@ -63,8 +63,8 @@ impl InstructionBuilder for PumpFunInstructionBuilder {
 
         let mut instructions = vec![];
 
-        // Create associated token account
-        instructions.push(create_associated_token_account(
+        // Create associated token account (idempotent - succeeds if already exists)
+        instructions.push(create_associated_token_account_idempotent(
             &params.payer.pubkey(),
             &params.payer.pubkey(),
             &params.mint,
