@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signer::Signer};
+use solana_sdk::{compute_budget::ComputeBudgetInstruction, instruction::Instruction, pubkey::Pubkey, signer::Signer};
 use solana_system_interface::instruction::transfer;
 use spl_associated_token_account::instruction::create_associated_token_account_idempotent;
 use spl_token::instruction::close_account;
@@ -159,6 +159,10 @@ impl PumpSwapInstructionBuilder {
             );
 
         let mut instructions = vec![];
+
+        // Add compute budget instructions for PumpSwap (needs more CUs due to multiple instructions)
+        instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(200_000)); // Increase from default 78k to 200k
+        instructions.push(ComputeBudgetInstruction::set_compute_unit_price(500_000)); // Default price
 
         if auto_handle_wsol {
             // Handle wSOL
@@ -361,6 +365,10 @@ impl PumpSwapInstructionBuilder {
             );
 
         let mut instructions = vec![];
+
+        // Add compute budget instructions for PumpSwap (needs more CUs due to multiple instructions)
+        instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(200_000)); // Increase from default 78k to 200k
+        instructions.push(ComputeBudgetInstruction::set_compute_unit_price(500_000)); // Default price
 
         // Insert wSOL
         instructions.push(
