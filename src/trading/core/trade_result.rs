@@ -52,7 +52,7 @@ impl TradeResult {
     ) -> Result<Self> {
         let analysis_start = Instant::now();
         
-        println!("[TRADE_ANALYSIS] 🔍 Analyzing transaction: {}", signature);
+        // Transaction analysis started
         
         // Configure RPC request for transaction details
         let config = RpcTransactionConfig {
@@ -108,7 +108,7 @@ impl TradeResult {
 
                 if token_delta > 0.0 {
                     tokens_received = token_delta;
-                    println!("[TRADE_ANALYSIS] 📈 Token delta found: {:.6} tokens", tokens_received);
+                    // Token delta found: {:.6} tokens
                     break;
                 }
             }
@@ -127,7 +127,7 @@ impl TradeResult {
             
             if balance_delta_lamports > 0 {
                 sol_spent = balance_delta_lamports as f64 / 1_000_000_000.0;
-                println!("[TRADE_ANALYSIS] 💰 SOL spent: {:.9} SOL", sol_spent);
+                // SOL spent: {:.9} SOL
             }
         }
 
@@ -139,7 +139,7 @@ impl TradeResult {
         if sol_spent <= 0.0 {
             // Fallback to expected SOL amount if we can't calculate from balance changes
             sol_spent = expected_sol_spent;
-            println!("[TRADE_ANALYSIS] ⚠️ Using expected SOL amount: {:.6} SOL", sol_spent);
+            // Using expected SOL amount: {:.6} SOL
         }
 
         // Calculate actual entry price
@@ -147,8 +147,7 @@ impl TradeResult {
 
         let analysis_duration_ms = analysis_start.elapsed().as_millis() as u64;
 
-        println!("[TRADE_ANALYSIS] ✅ Analysis complete in {}ms: {:.6} tokens at {:.10} SOL per token", 
-            analysis_duration_ms, tokens_received, entry_price);
+                // Analysis complete: {:.6} tokens at {:.10} SOL per token
 
         Ok(TradeResult {
             signature: signature.to_string(),

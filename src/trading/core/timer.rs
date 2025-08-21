@@ -18,8 +18,8 @@ impl TradeTimer {
     
     /// 记录当前阶段耗时并开始新阶段
     pub fn stage(&mut self, new_stage: impl Into<String>) {
-        let elapsed = self.start_time.elapsed();
-        println!(" {} 耗时: {:?}", self.stage, elapsed);
+        let _elapsed = self.start_time.elapsed();
+        // Timing output removed for cleaner logs
         
         self.start_time = Instant::now();
         self.stage = new_stage.into();
@@ -27,8 +27,8 @@ impl TradeTimer {
     
     /// 完成计时并输出最终耗时
     pub fn finish(mut self) {
-        let elapsed = self.start_time.elapsed();
-        println!(" {} 耗时: {:?}", self.stage, elapsed);
+        let _elapsed = self.start_time.elapsed();
+        // Timing output removed for cleaner logs
         self.stage.clear(); // 清空stage，避免Drop时重复打印
     }
     
@@ -41,8 +41,8 @@ impl TradeTimer {
 impl Drop for TradeTimer {
     fn drop(&mut self) {
         if !self.stage.is_empty() {
-            let elapsed = self.start_time.elapsed();
-            println!(" {} 耗时: {:?}", self.stage, elapsed);
+            let _elapsed = self.start_time.elapsed();
+            // Timing output removed for cleaner logs
         }
     }
 } 
