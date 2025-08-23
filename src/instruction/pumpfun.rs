@@ -3,7 +3,7 @@ use solana_sdk::instruction::Instruction;
 use spl_associated_token_account::{
     get_associated_token_address, instruction::create_associated_token_account_idempotent,
 };
-use spl_token::instruction::close_account;
+// Note: close_account import removed - PumpFun no longer auto-closes token accounts
 
 use crate::{
     constants,
@@ -103,7 +103,7 @@ impl InstructionBuilder for PumpFunInstructionBuilder {
             return Err(anyhow!("Amount token is required"));
         };
         let creator_vault_pda = get_creator_vault_pda(&params.creator).unwrap();
-        let ata = get_associated_token_address(&params.payer.pubkey(), &params.mint);
+        // Note: ATA address calculation removed since we no longer auto-close accounts
 
         let sol_amount = get_sell_sol_amount_from_token_amount(
             bonding_curve.virtual_token_reserves as u128,
@@ -116,7 +116,7 @@ impl InstructionBuilder for PumpFunInstructionBuilder {
             params.slippage_basis_points.unwrap_or(DEFAULT_SLIPPAGE),
         );
 
-        let mut instructions = vec![sell(
+        let instructions = vec![sell(
             params.payer.as_ref(),
             &params.mint,
             &creator_vault_pda,
@@ -124,16 +124,8 @@ impl InstructionBuilder for PumpFunInstructionBuilder {
             Sell { _amount: token_amount, _min_sol_output: min_sol_output },
         )];
 
-        // If selling all tokens, close the account
-        if protocol_params.close_token_account_when_sell.unwrap_or(false) {
-            instructions.push(close_account(
-                &spl_token::ID,
-                &ata,
-                &params.payer.pubkey(),
-                &params.payer.pubkey(),
-                &[&params.payer.pubkey()],
-            )?);
-        }
+        // NOTE: Removed automatic account closing to prevent "balance is zero" errors
+        // Token accounts can be closed manually later if needed
 
         Ok(instructions)
     }

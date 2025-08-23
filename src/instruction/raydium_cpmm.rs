@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use solana_sdk::{instruction::Instruction, signer::Signer};
 use solana_system_interface::instruction::transfer;
 use spl_associated_token_account::instruction::create_associated_token_account_idempotent;
-use spl_token::instruction::close_account;
+// Note: Using full path spl_token::instruction::close_account for wSOL closing
 
 use crate::{
     constants::{
@@ -253,7 +253,7 @@ impl RaydiumCpmmInstructionBuilder {
 
         if protocol_params.auto_handle_wsol {
             instructions.push(
-                close_account(
+                spl_token::instruction::close_account(
                     &accounts::TOKEN_PROGRAM,
                     &wsol_token_account,
                     &params.payer.pubkey(),
