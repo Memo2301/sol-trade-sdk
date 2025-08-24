@@ -103,8 +103,8 @@ impl PumpSwapInstructionBuilder {
         }
         let quote_mint_is_wsol = quote_mint == accounts::WSOL_TOKEN_ACCOUNT;
 
-        let mut token_amount = 0;
-        let mut sol_amount = 0;
+        let token_amount;
+        let sol_amount;
         if quote_mint_is_wsol {
             let result = buy_quote_input_internal(
                 params.sol_amount,
@@ -304,8 +304,8 @@ impl PumpSwapInstructionBuilder {
 
         let quote_mint_is_wsol = quote_mint == accounts::WSOL_TOKEN_ACCOUNT;
 
-        let mut token_amount = 0;
-        let mut sol_amount = 0;
+        let token_amount;
+        let sol_amount;
 
         if quote_mint_is_wsol {
             let result = sell_base_input_internal(
