@@ -35,6 +35,8 @@ pub struct TradeResult {
     pub profit_loss_percentage: Option<f64>,
     /// Optional: Original entry price for profit calculation (for sell transactions)
     pub original_entry_price: Option<f64>,
+    /// Slot number where the transaction was processed
+    pub slot: Option<u64>,
 }
 
 impl TradeResult {
@@ -74,6 +76,9 @@ impl TradeResult {
             .get_transaction_with_config(signature, config)
             .await
             .map_err(|e| anyhow!("Failed to fetch transaction: {}", e))?;
+
+        // Extract slot information
+        let slot = transaction.slot;
 
         // Extract meta data
         let meta = transaction
@@ -168,6 +173,7 @@ impl TradeResult {
             profit_loss_absolute: None,
             profit_loss_percentage: None,
             original_entry_price: None,
+            slot: Some(slot),
         })
     }
 
@@ -207,6 +213,9 @@ impl TradeResult {
             .get_transaction_with_config(signature, config)
             .await
             .map_err(|e| anyhow!("Failed to fetch transaction: {}", e))?;
+
+        // Extract slot information
+        let slot = transaction.slot;
 
         // Extract meta data
         let meta = transaction
@@ -303,6 +312,7 @@ impl TradeResult {
             profit_loss_absolute: Some(profit_loss_absolute),
             profit_loss_percentage: Some(profit_loss_percentage),
             original_entry_price: Some(original_entry_price),
+            slot: Some(slot),
         })
     }
 }
