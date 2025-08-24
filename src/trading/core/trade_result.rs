@@ -37,6 +37,8 @@ pub struct TradeResult {
     pub original_entry_price: Option<f64>,
     /// Slot number where the transaction was processed
     pub slot: Option<u64>,
+    /// Solana network fees paid (in lamports)
+    pub solana_fees: Option<u64>,
 }
 
 impl TradeResult {
@@ -85,6 +87,9 @@ impl TradeResult {
             .transaction
             .meta
             .ok_or_else(|| anyhow!("Transaction meta not found"))?;
+
+        // Extract Solana network fees
+        let solana_fees = Some(meta.fee);
 
         // Check if transaction was successful
         if meta.err.is_some() {
@@ -174,6 +179,7 @@ impl TradeResult {
             profit_loss_percentage: None,
             original_entry_price: None,
             slot: Some(slot),
+            solana_fees,
         })
     }
 
@@ -222,6 +228,9 @@ impl TradeResult {
             .transaction
             .meta
             .ok_or_else(|| anyhow!("Transaction meta not found"))?;
+
+        // Extract Solana network fees
+        let solana_fees = Some(meta.fee);
 
         // Check if transaction was successful
         if meta.err.is_some() {
@@ -313,6 +322,7 @@ impl TradeResult {
             profit_loss_percentage: Some(profit_loss_percentage),
             original_entry_price: Some(original_entry_price),
             slot: Some(slot),
+            solana_fees,
         })
     }
 }
