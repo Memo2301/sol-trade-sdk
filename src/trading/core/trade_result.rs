@@ -18,9 +18,9 @@ pub struct TradeResult {
     /// Actual token amount received (in UI format, e.g., 248.992717 for 6 decimals)
     /// For sell transactions, this will be negative (representing tokens sold)
     pub tokens_received: f64,
-    /// Actual entry price (SOL per token)
+    /// Market entry price (SOL per token) - calculated from base trade amount excluding fees
     pub entry_price: f64,
-    /// SOL amount spent (in SOL, not lamports)
+    /// Total SOL amount spent including all fees (in SOL, not lamports)
     /// For sell transactions, this will be negative (representing SOL received)
     pub sol_spent: f64,
     /// Token mint address
@@ -160,8 +160,9 @@ impl TradeResult {
             // Using expected SOL amount: {:.6} SOL
         }
 
-        // Calculate actual entry price
-        let entry_price = sol_spent / tokens_received;
+        // Calculate market entry price using base trade amount (excluding fees)
+        // sol_spent includes all fees, but entry_price should reflect market price
+        let entry_price = expected_sol_spent / tokens_received;
 
         let analysis_duration_ms = analysis_start.elapsed().as_millis() as u64;
 
