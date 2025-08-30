@@ -9,6 +9,8 @@ use solana_sdk::{
 use solana_transaction_status::UiTransactionEncoding;
 use std::time::Instant;
 use crate::common::SolanaRpcClient;
+use spl_token::state::Mint;
+use solana_program::program_pack::Pack;
 
 /// Trade execution result containing actual transaction data
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,6 +44,26 @@ pub struct TradeResult {
 }
 
 impl TradeResult {
+    /// Get token decimals from mint account
+    async fn get_token_decimals(
+        rpc_client: &SolanaRpcClient,
+        token_mint: &Pubkey,
+    ) -> Result<u8> {
+        let mint_account = rpc_client
+            .get_account(token_mint)
+            .await
+            .map_err(|e| anyhow!("Failed to fetch mint account: {}", e))?;
+
+        let mint_data = Mint::unpack(&mint_account.data)
+            .map_err(|e| anyhow!("Failed to deserialize mint account: {}", e))?;
+
+        Ok(mint_data.decimals)
+    }
+
+    /// Calculate token amount in UI format from raw amount and decimals
+    fn raw_amount_to_ui_amount(raw_amount: u64, decimals: u8) -> f64 {
+        raw_amount as f64 / 10_f64.powi(decimals as i32)
+    }
     /// Analyze a transaction to extract actual trade results
     /// 
     /// # Arguments
@@ -96,6 +118,10 @@ impl TradeResult {
             return Err(anyhow!("Transaction failed: {:?}", meta.err));
         }
 
+        // Get token decimals for accurate calculations
+        let token_decimals = Self::get_token_decimals(rpc_client, token_mint).await
+            .unwrap_or(6); // Default to 6 decimals if fetch fails
+
         // Analyze token balance changes
         let pre_token_balances = meta.pre_token_balances.unwrap_or(vec![]);
         let post_token_balances = meta.post_token_balances.unwrap_or(vec![]);
@@ -118,15 +144,30 @@ impl TradeResult {
                         pre.owner.as_ref() == Some(&wallet_str).into() &&
                         pre.account_index == post_balance.account_index
                     })
-                    .map(|pre| pre.ui_token_amount.ui_amount.unwrap_or(0.0))
+                    .map(|pre| {
+                        // 🔥 FIXED: Use ui_amount if available, otherwise calculate from raw amount
+                        if let Some(ui_amount) = pre.ui_token_amount.ui_amount {
+                            ui_amount
+                        } else {
+                            let raw_amount = pre.ui_token_amount.amount.parse::<u64>().unwrap_or(0);
+                            Self::raw_amount_to_ui_amount(raw_amount, token_decimals)
+                        }
+                    })
                     .unwrap_or(0.0);
 
-                let post_amount = post_balance.ui_token_amount.ui_amount.unwrap_or(0.0);
+                // 🔥 FIXED: Use ui_amount if available, otherwise calculate from raw amount
+                let post_amount = if let Some(ui_amount) = post_balance.ui_token_amount.ui_amount {
+                    ui_amount
+                } else {
+                    let raw_amount = post_balance.ui_token_amount.amount.parse::<u64>().unwrap_or(0);
+                    Self::raw_amount_to_ui_amount(raw_amount, token_decimals)
+                };
+
                 let token_delta = post_amount - pre_amount;
 
                 if token_delta > 0.0 {
                     tokens_received = token_delta;
-                    // Token delta found: {:.6} tokens
+                    // Token delta found: {:.6} tokens (using {} decimals)
                     break;
                 }
             }
@@ -238,6 +279,10 @@ impl TradeResult {
             return Err(anyhow!("Transaction failed: {:?}", meta.err));
         }
 
+        // Get token decimals for accurate calculations
+        let token_decimals = Self::get_token_decimals(rpc_client, token_mint).await
+            .unwrap_or(6); // Default to 6 decimals if fetch fails
+
         // Analyze token balance changes
         let pre_token_balances = meta.pre_token_balances.unwrap_or(vec![]);
         let post_token_balances = meta.post_token_balances.unwrap_or(vec![]);
@@ -260,10 +305,24 @@ impl TradeResult {
                         post.owner.as_ref() == Some(&wallet_str).into() &&
                         post.account_index == pre_balance.account_index
                     })
-                    .map(|post| post.ui_token_amount.ui_amount.unwrap_or(0.0))
+                    .map(|post| {
+                        // 🔥 FIXED: Use ui_amount if available, otherwise calculate from raw amount
+                        if let Some(ui_amount) = post.ui_token_amount.ui_amount {
+                            ui_amount
+                        } else {
+                            let raw_amount = post.ui_token_amount.amount.parse::<u64>().unwrap_or(0);
+                            Self::raw_amount_to_ui_amount(raw_amount, token_decimals)
+                        }
+                    })
                     .unwrap_or(0.0);
 
-                let pre_amount = pre_balance.ui_token_amount.ui_amount.unwrap_or(0.0);
+                // 🔥 FIXED: Use ui_amount if available, otherwise calculate from raw amount
+                let pre_amount = if let Some(ui_amount) = pre_balance.ui_token_amount.ui_amount {
+                    ui_amount
+                } else {
+                    let raw_amount = pre_balance.ui_token_amount.amount.parse::<u64>().unwrap_or(0);
+                    Self::raw_amount_to_ui_amount(raw_amount, token_decimals)
+                };
                 let token_delta = pre_amount - post_amount;
 
                 if token_delta > 0.0 {
