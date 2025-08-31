@@ -257,6 +257,12 @@ impl SolanaTrade {
             DexType::RaydiumCpmm => {
                 protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
             }
+            DexType::RaydiumClmm => {
+                protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
+            }
+            DexType::RaydiumClmmV2 => {
+                protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
+            }
             DexType::RaydiumAmmV4 => {
                 protocol_params.as_any().downcast_ref::<RaydiumAmmV4Params>().is_some()
             }
@@ -402,6 +408,12 @@ impl SolanaTrade {
             }
             DexType::Bonk => protocol_params.as_any().downcast_ref::<BonkParams>().is_some(),
             DexType::RaydiumCpmm => {
+                protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
+            }
+            DexType::RaydiumClmm => {
+                protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
+            }
+            DexType::RaydiumClmmV2 => {
                 protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
             }
             DexType::RaydiumAmmV4 => {

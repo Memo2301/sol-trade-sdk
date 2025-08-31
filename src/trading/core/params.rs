@@ -495,3 +495,81 @@ impl SellParams {
         }
     }
 }
+
+/// Raydium CLMM V1 protocol specific parameters
+/// Configuration parameters specific to Raydium CLMM V1 trading protocol
+#[derive(Clone)]
+pub struct RaydiumClmmParams {
+    /// Core CLMM accounts
+    pub amm_config: Pubkey,
+    pub pool_state: Pubkey,
+    pub input_vault: Pubkey,
+    pub output_vault: Pubkey,
+    pub observation_state: Pubkey,
+    /// Tick arrays for swap execution
+    pub tick_arrays: Vec<Pubkey>,
+    /// Token programs
+    pub input_token_program: Pubkey,
+    pub output_token_program: Pubkey,
+    /// User token accounts
+    pub payer_sol_account: Pubkey,
+    pub payer_token_account: Pubkey,
+    /// Instruction parameters
+    pub other_amount_threshold: u64,
+    pub sqrt_price_limit_x64: u128,
+    pub is_base_input: bool,
+    /// Whether to automatically handle wSOL wrapping and unwrapping
+    pub auto_handle_wsol: bool,
+}
+
+impl ProtocolParams for RaydiumClmmParams {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn clone_box(&self) -> Box<dyn ProtocolParams> {
+        Box::new(self.clone())
+    }
+}
+
+/// Raydium CLMM V2 protocol specific parameters
+/// Configuration parameters specific to Raydium CLMM V2 trading protocol
+#[derive(Clone)]
+pub struct RaydiumClmmV2Params {
+    /// Core CLMM accounts
+    pub amm_config: Pubkey,
+    pub pool_state: Pubkey,
+    pub input_vault: Pubkey,
+    pub output_vault: Pubkey,
+    pub observation_state: Pubkey,
+    /// Vault mint addresses (V2 specific)
+    pub input_vault_mint: Pubkey,
+    pub output_vault_mint: Pubkey,
+    /// Tick arrays for swap execution
+    pub tick_arrays: Vec<Pubkey>,
+    /// Token programs (V2 includes token_program_2022)
+    pub input_token_program: Pubkey,
+    pub output_token_program: Pubkey,
+    pub token_program: Pubkey,
+    pub token_program_2022: Pubkey,
+    pub memo_program: Pubkey,
+    /// User token accounts
+    pub payer_sol_account: Pubkey,
+    pub payer_token_account: Pubkey,
+    /// Instruction parameters
+    pub other_amount_threshold: u64,
+    pub sqrt_price_limit_x64: u128,
+    pub is_base_input: bool,
+    /// Whether to automatically handle wSOL wrapping and unwrapping
+    pub auto_handle_wsol: bool,
+}
+
+impl ProtocolParams for RaydiumClmmV2Params {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn clone_box(&self) -> Box<dyn ProtocolParams> {
+        Box::new(self.clone())
+    }
+}

@@ -5,6 +5,7 @@ use crate::instruction::{
     bonk::BonkInstructionBuilder, pumpfun::PumpFunInstructionBuilder,
     pumpswap::PumpSwapInstructionBuilder, raydium_amm_v4::RaydiumAmmV4InstructionBuilder,
     raydium_cpmm::RaydiumCpmmInstructionBuilder,
+    raydium_clmm::{RaydiumClmmInstructionBuilder, RaydiumClmmV2InstructionBuilder},
 };
 
 use super::core::{executor::GenericTradeExecutor, traits::TradeExecutor};
@@ -16,6 +17,8 @@ pub enum DexType {
     PumpSwap,
     Bonk,
     RaydiumCpmm,
+    RaydiumClmm,
+    RaydiumClmmV2,
     RaydiumAmmV4,
 }
 
@@ -26,6 +29,8 @@ impl std::fmt::Display for DexType {
             DexType::PumpSwap => write!(f, "PumpSwap"),
             DexType::Bonk => write!(f, "Bonk"),
             DexType::RaydiumCpmm => write!(f, "RaydiumCpmm"),
+            DexType::RaydiumClmm => write!(f, "RaydiumClmm"),
+            DexType::RaydiumClmmV2 => write!(f, "RaydiumClmmV2"),
             DexType::RaydiumAmmV4 => write!(f, "RaydiumAmmV4"),
         }
     }
@@ -40,6 +45,8 @@ impl std::str::FromStr for DexType {
             "pumpswap" => Ok(DexType::PumpSwap),
             "bonk" => Ok(DexType::Bonk),
             "raydiumcpmm" => Ok(DexType::RaydiumCpmm),
+            "raydiumclmm" => Ok(DexType::RaydiumClmm),
+            "raydiumclmmv2" => Ok(DexType::RaydiumClmmV2),
             "raydiumammv4" => Ok(DexType::RaydiumAmmV4),
             _ => Err(anyhow!("Unsupported protocol: {}", s)),
         }
@@ -69,6 +76,14 @@ impl TradeFactory {
                 let instruction_builder = Arc::new(RaydiumCpmmInstructionBuilder);
                 Arc::new(GenericTradeExecutor::new(instruction_builder, "RaydiumCpmm"))
             }
+            DexType::RaydiumClmm => {
+                let instruction_builder = Arc::new(RaydiumClmmInstructionBuilder);
+                Arc::new(GenericTradeExecutor::new(instruction_builder, "RaydiumClmm"))
+            }
+            DexType::RaydiumClmmV2 => {
+                let instruction_builder = Arc::new(RaydiumClmmV2InstructionBuilder);
+                Arc::new(GenericTradeExecutor::new(instruction_builder, "RaydiumClmmV2"))
+            }
             DexType::RaydiumAmmV4 => {
                 let instruction_builder = Arc::new(RaydiumAmmV4InstructionBuilder);
                 Arc::new(GenericTradeExecutor::new(instruction_builder, "RaydiumAmmV4"))
@@ -78,7 +93,15 @@ impl TradeFactory {
 
     /// 获取所有支持的协议
     pub fn supported_dex_types() -> Vec<DexType> {
-        vec![DexType::PumpFun, DexType::PumpSwap, DexType::Bonk, DexType::RaydiumCpmm]
+        vec![
+            DexType::PumpFun, 
+            DexType::PumpSwap, 
+            DexType::Bonk, 
+            DexType::RaydiumCpmm,
+            DexType::RaydiumClmm,
+            DexType::RaydiumClmmV2,
+            DexType::RaydiumAmmV4
+        ]
     }
 
     /// 检查协议是否支持
