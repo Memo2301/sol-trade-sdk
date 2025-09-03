@@ -97,6 +97,10 @@ pub struct PumpFunParams {
     pub bonding_curve: Arc<BondingCurveAccount>,
     /// Whether to close token account when selling, only effective during sell operations
     pub close_token_account_when_sell: Option<bool>,
+    /// Fee config account for PumpFun fee management
+    pub fee_config: Pubkey,
+    /// Fee program account for PumpFun fee calculation
+    pub fee_program: Pubkey,
 }
 
 impl PumpFunParams {
@@ -112,6 +116,8 @@ impl PumpFunParams {
         Self {
             bonding_curve: Arc::new(bonding_curve),
             close_token_account_when_sell: close_token_account_when_sell,
+            fee_config: Pubkey::default(), // Will need to be set from trade event
+            fee_program: Pubkey::default(), // Will need to be set from trade event
         }
     }
 
@@ -123,6 +129,8 @@ impl PumpFunParams {
         Self {
             bonding_curve: Arc::new(bonding_curve),
             close_token_account_when_sell: close_token_account_when_sell,
+            fee_config: event.fee_config,
+            fee_program: event.fee_program,
         }
     }
 }

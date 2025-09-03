@@ -78,6 +78,8 @@ impl InstructionBuilder for PumpFunInstructionBuilder {
             &bonding_curve.account,
             &creator_vault_pda,
             &FEE_RECIPIENT,
+            &protocol_params.fee_config,
+            &protocol_params.fee_program,
             Buy { _amount: buy_token_amount, _max_sol_cost: max_sol_cost },
         ));
 
@@ -121,6 +123,8 @@ impl InstructionBuilder for PumpFunInstructionBuilder {
             &params.mint,
             &creator_vault_pda,
             &FEE_RECIPIENT,
+            &protocol_params.fee_config,
+            &protocol_params.fee_program,
             Sell { _amount: token_amount, _min_sol_output: min_sol_output },
         )];
 
@@ -167,6 +171,8 @@ pub fn buy(
     bonding_curve_pda: &Pubkey,
     creator_vault_pda: &Pubkey,
     fee_recipient: &Pubkey,
+    fee_config: &Pubkey,
+    fee_program: &Pubkey,
     args: Buy,
 ) -> Instruction {
     Instruction::new_with_bytes(
@@ -187,6 +193,9 @@ pub fn buy(
             AccountMeta::new_readonly(constants::pumpfun::accounts::PUMPFUN, false),
             AccountMeta::new(get_global_volume_accumulator_pda().unwrap(), false),
             AccountMeta::new(get_user_volume_accumulator_pda(&payer.pubkey()).unwrap(), false),
+            // Account 14 would be here if needed
+            AccountMeta::new_readonly(*fee_config, false),  // Account 15
+            AccountMeta::new_readonly(*fee_program, false), // Account 16
         ],
     )
 }
@@ -196,6 +205,8 @@ pub fn sell(
     mint: &Pubkey,
     creator_vault_pda: &Pubkey,
     fee_recipient: &Pubkey,
+    fee_config: &Pubkey,
+    fee_program: &Pubkey,
     args: Sell,
 ) -> Instruction {
     let bonding_curve: Pubkey = get_bonding_curve_pda(mint).unwrap();
@@ -217,6 +228,9 @@ pub fn sell(
             AccountMeta::new_readonly(constants::pumpfun::accounts::PUMPFUN, false),
             AccountMeta::new(get_global_volume_accumulator_pda().unwrap(), false),
             AccountMeta::new(get_user_volume_accumulator_pda(&payer.pubkey()).unwrap(), false),
+            // Account 14 would be here if needed
+            AccountMeta::new_readonly(*fee_config, false),  // Account 15
+            AccountMeta::new_readonly(*fee_program, false), // Account 16
         ],
     )
 }
