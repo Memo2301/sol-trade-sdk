@@ -213,22 +213,20 @@ pub fn sell(
         constants::pumpfun::accounts::PUMPFUN,
         &args.data(),
         vec![
-            AccountMeta::new_readonly(constants::pumpfun::global_constants::GLOBAL_ACCOUNT, false),
-            AccountMeta::new(*fee_recipient, false),
-            AccountMeta::new_readonly(*mint, false),
-            AccountMeta::new(bonding_curve, false),
-            AccountMeta::new(get_associated_token_address(&bonding_curve, mint), false),
-            AccountMeta::new(get_associated_token_address(&payer.pubkey(), mint), false),
-            AccountMeta::new(payer.pubkey(), true),
-            AccountMeta::new_readonly(constants::pumpfun::accounts::SYSTEM_PROGRAM, false),
-            AccountMeta::new(*creator_vault_pda, false),
-            AccountMeta::new_readonly(constants::pumpfun::accounts::TOKEN_PROGRAM, false),
-            AccountMeta::new_readonly(constants::pumpfun::accounts::EVENT_AUTHORITY, false),
-            AccountMeta::new_readonly(constants::pumpfun::accounts::PUMPFUN, false),
-            AccountMeta::new(get_global_volume_accumulator_pda().unwrap(), false),
-            AccountMeta::new(get_user_volume_accumulator_pda(&payer.pubkey()).unwrap(), false),
-            AccountMeta::new_readonly(*fee_config, false),
-            AccountMeta::new_readonly(*fee_program, false),
+            AccountMeta::new_readonly(constants::pumpfun::global_constants::GLOBAL_ACCOUNT, false), // 0
+            AccountMeta::new(*fee_recipient, false), // 1
+            AccountMeta::new_readonly(*mint, false), // 2
+            AccountMeta::new(bonding_curve, false), // 3
+            AccountMeta::new(get_associated_token_address(&bonding_curve, mint), false), // 4
+            AccountMeta::new(get_associated_token_address(&payer.pubkey(), mint), false), // 5
+            AccountMeta::new(payer.pubkey(), true), // 6
+            AccountMeta::new_readonly(constants::pumpfun::accounts::SYSTEM_PROGRAM, false), // 7
+            AccountMeta::new(*creator_vault_pda, false), // 8
+            AccountMeta::new_readonly(constants::pumpfun::accounts::TOKEN_PROGRAM, false), // 9
+            AccountMeta::new_readonly(constants::pumpfun::accounts::EVENT_AUTHORITY, false), // 10
+            AccountMeta::new_readonly(constants::pumpfun::accounts::PUMPFUN, false), // 11
+            AccountMeta::new_readonly(*fee_config, false), // 12 (moved from position 14)
+            AccountMeta::new_readonly(*fee_program, false), // 13 (moved from position 15)
         ],
     )
 }
