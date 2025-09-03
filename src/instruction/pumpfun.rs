@@ -193,9 +193,8 @@ pub fn buy(
             AccountMeta::new_readonly(constants::pumpfun::accounts::PUMPFUN, false),
             AccountMeta::new(get_global_volume_accumulator_pda().unwrap(), false),
             AccountMeta::new(get_user_volume_accumulator_pda(&payer.pubkey()).unwrap(), false),
-            // Account 14 would be here if needed
-            AccountMeta::new_readonly(*fee_config, false),  // Account 15
-            AccountMeta::new_readonly(*fee_program, false), // Account 16
+            AccountMeta::new_readonly(*fee_config, false),
+            AccountMeta::new_readonly(*fee_program, false),
         ],
     )
 }
@@ -228,9 +227,8 @@ pub fn sell(
             AccountMeta::new_readonly(constants::pumpfun::accounts::PUMPFUN, false),
             AccountMeta::new(get_global_volume_accumulator_pda().unwrap(), false),
             AccountMeta::new(get_user_volume_accumulator_pda(&payer.pubkey()).unwrap(), false),
-            // Account 14 would be here if needed
-            AccountMeta::new_readonly(*fee_config, false),  // Account 15
-            AccountMeta::new_readonly(*fee_program, false), // Account 16
+            AccountMeta::new_readonly(*fee_config, false),
+            AccountMeta::new_readonly(*fee_program, false),
         ],
     )
 }

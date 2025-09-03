@@ -129,8 +129,8 @@ impl PumpFunParams {
         Self {
             bonding_curve: Arc::new(bonding_curve),
             close_token_account_when_sell: close_token_account_when_sell,
-            fee_config: event.fee_config,
-            fee_program: event.fee_program,
+            fee_config: event.fee_config, // Extract fee config from event
+            fee_program: event.fee_program, // Extract fee program from event
         }
     }
 }
