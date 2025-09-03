@@ -17,7 +17,7 @@ use crate::{
     },
 };
 
-const MAX_LOADED_ACCOUNTS_DATA_SIZE_LIMIT: u32 = 256 * 1024;
+const MAX_LOADED_ACCOUNTS_DATA_SIZE_LIMIT: u32 = 512 * 1024;
 
 /// 通用交易执行器实现
 pub struct GenericTradeExecutor {

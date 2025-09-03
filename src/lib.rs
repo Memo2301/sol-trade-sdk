@@ -12,7 +12,7 @@ use crate::trading::core::params::BonkParams;
 use crate::trading::core::params::PumpFunParams;
 use crate::trading::core::params::PumpSwapParams;
 use crate::trading::core::params::RaydiumAmmV4Params;
-use crate::trading::core::params::RaydiumCpmmParams;
+use crate::trading::core::params::{RaydiumCpmmParams, RaydiumClmmParams, RaydiumClmmV2Params};
 // Re-export TradeResult for external use
 pub use crate::trading::core::trade_result::TradeResult;
 use crate::trading::core::traits::ProtocolParams;
@@ -258,10 +258,10 @@ impl SolanaTrade {
                 protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
             }
             DexType::RaydiumClmm => {
-                protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
+                protocol_params.as_any().downcast_ref::<RaydiumClmmParams>().is_some()
             }
             DexType::RaydiumClmmV2 => {
-                protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
+                protocol_params.as_any().downcast_ref::<RaydiumClmmV2Params>().is_some()
             }
             DexType::RaydiumAmmV4 => {
                 protocol_params.as_any().downcast_ref::<RaydiumAmmV4Params>().is_some()
@@ -411,10 +411,10 @@ impl SolanaTrade {
                 protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
             }
             DexType::RaydiumClmm => {
-                protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
+                protocol_params.as_any().downcast_ref::<RaydiumClmmParams>().is_some()
             }
             DexType::RaydiumClmmV2 => {
-                protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
+                protocol_params.as_any().downcast_ref::<RaydiumClmmV2Params>().is_some()
             }
             DexType::RaydiumAmmV4 => {
                 protocol_params.as_any().downcast_ref::<RaydiumAmmV4Params>().is_some()

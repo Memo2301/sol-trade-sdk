@@ -54,6 +54,8 @@ impl InstructionBuilder for PumpSwapInstructionBuilder {
             pool_quote_token_reserves,
             protocol_params.creator,
             protocol_params.auto_handle_wsol,
+            protocol_params.fee_config,
+            protocol_params.fee_program,
         )
         .await
     }
@@ -80,6 +82,8 @@ impl InstructionBuilder for PumpSwapInstructionBuilder {
             pool_quote_token_reserves,
             protocol_params.creator,
             protocol_params.auto_handle_wsol,
+            protocol_params.fee_config,
+            protocol_params.fee_program,
         )
         .await
     }
@@ -97,6 +101,8 @@ impl PumpSwapInstructionBuilder {
         pool_quote_token_reserves: u64,
         creator: Pubkey,
         auto_handle_wsol: bool,
+        fee_config: Pubkey,
+        fee_program: Pubkey,
     ) -> Result<Vec<Instruction>> {
         if params.rpc.is_none() {
             return Err(anyhow!("RPC is not set"));
@@ -245,6 +251,10 @@ impl PumpSwapInstructionBuilder {
                 false,
             ));
         }
+        
+        // Add Fee Config and Fee Program accounts
+        accounts.push(solana_sdk::instruction::AccountMeta::new_readonly(fee_config, false));
+        accounts.push(solana_sdk::instruction::AccountMeta::new_readonly(fee_program, false));
 
         // Create instruction data
         let mut data = vec![];
@@ -294,6 +304,8 @@ impl PumpSwapInstructionBuilder {
         pool_quote_token_reserves: u64,
         creator: Pubkey,
         auto_handle_wsol: bool,
+        fee_config: Pubkey,
+        fee_program: Pubkey,
     ) -> Result<Vec<Instruction>> {
         if params.rpc.is_none() {
             return Err(anyhow!("RPC is not set"));
@@ -416,6 +428,10 @@ impl PumpSwapInstructionBuilder {
                 false,
             ));
         }
+        
+        // Add Fee Config and Fee Program accounts
+        accounts.push(solana_sdk::instruction::AccountMeta::new_readonly(fee_config, false));
+        accounts.push(solana_sdk::instruction::AccountMeta::new_readonly(fee_program, false));
 
         // Create instruction data
         let mut data = vec![];

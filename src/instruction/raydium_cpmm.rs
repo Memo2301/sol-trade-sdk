@@ -48,12 +48,19 @@ impl RaydiumCpmmInstructionBuilder {
             .downcast_ref::<RaydiumCpmmParams>()
             .ok_or_else(|| anyhow!("Invalid protocol params for RaydiumCpmm"))?;
 
-        let pool_state = get_pool_pda(
-            &accounts::AMM_CONFIG,
-            &protocol_params.base_mint,
-            &protocol_params.quote_mint,
-        )
-        .unwrap();
+        // Use exact pool_state from event if provided, otherwise derive it
+        let pool_state = if let Some(event_pool_state) = protocol_params.pool_state {
+            println!("🎯 [CPMM_SDK_BUY] Using EXACT pool_state from event: {}", event_pool_state);
+            event_pool_state
+        } else {
+            println!("⚠️ [CPMM_SDK_BUY] Event pool_state not provided, deriving with AMM_CONFIG");
+            get_pool_pda(
+                &accounts::AMM_CONFIG,
+                &protocol_params.base_mint,
+                &protocol_params.quote_mint,
+            )
+            .unwrap()
+        };
 
         let wsol_token_account = spl_associated_token_account::get_associated_token_address(
             &params.payer.pubkey(),
@@ -64,11 +71,40 @@ impl RaydiumCpmmInstructionBuilder {
             &params.mint,
         );
 
-        // Get pool token accounts
-        let wsol_vault_account = get_vault_pda(&pool_state, &accounts::WSOL_TOKEN_ACCOUNT).unwrap();
-        let mint_vault_account = get_vault_pda(&pool_state, &params.mint).unwrap();
+        // Use exact vaults from event if provided, otherwise derive them
+        let wsol_vault_account = if let Some(event_input_vault) = protocol_params.input_vault {
+            if protocol_params.base_mint == accounts::WSOL_TOKEN_ACCOUNT { 
+                // WSOL is base (input)
+                println!("🎯 [CPMM_SDK_BUY] Using EXACT input_vault (WSOL) from event: {}", event_input_vault);
+                event_input_vault
+            } else {
+                // WSOL is quote (output), use output_vault
+                protocol_params.output_vault.unwrap_or_else(|| {
+                    get_vault_pda(&pool_state, &accounts::WSOL_TOKEN_ACCOUNT).unwrap()
+                })
+            }
+        } else {
+            get_vault_pda(&pool_state, &accounts::WSOL_TOKEN_ACCOUNT).unwrap()
+        };
+        
+        let mint_vault_account = if let Some(event_output_vault) = protocol_params.output_vault {
+            if protocol_params.base_mint == accounts::WSOL_TOKEN_ACCOUNT {
+                // Token is quote (output)
+                println!("🎯 [CPMM_SDK_BUY] Using EXACT output_vault (Token) from event: {}", event_output_vault);
+                event_output_vault
+            } else {
+                // Token is base (input), use input_vault
+                protocol_params.input_vault.unwrap_or_else(|| {
+                    get_vault_pda(&pool_state, &params.mint).unwrap()
+                })
+            }
+        } else {
+            get_vault_pda(&pool_state, &params.mint).unwrap()
+        };
 
-        let observation_state_account = get_observation_state_pda(&pool_state).unwrap();
+        let observation_state_account = protocol_params.observation_state.unwrap_or_else(|| {
+            get_observation_state_pda(&pool_state).unwrap()
+        });
         let is_base_in = protocol_params.base_mint == accounts::WSOL_TOKEN_ACCOUNT;
 
         let amount_in: u64 = params.sol_amount;
@@ -119,11 +155,18 @@ impl RaydiumCpmmInstructionBuilder {
             &mint_token_program,
         ));
 
+        // Use exact authority and amm_config from event if provided
+        let authority = protocol_params.authority.unwrap_or(accounts::AUTHORITY);
+        let amm_config = protocol_params.amm_config.unwrap_or(accounts::AMM_CONFIG);
+        
+        println!("🎯 [CPMM_SDK_BUY] Using authority: {} (event: {})", authority, protocol_params.authority.is_some());
+        println!("🎯 [CPMM_SDK_BUY] Using amm_config: {} (event: {})", amm_config, protocol_params.amm_config.is_some());
+
         // Create buy instruction
         let accounts = vec![
             solana_sdk::instruction::AccountMeta::new(params.payer.pubkey(), true), // Payer (signer)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::AUTHORITY, false), // Authority (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::AMM_CONFIG, false), // Amm Config (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(authority, false), // Authority (readonly) - FROM EVENT!
+            solana_sdk::instruction::AccountMeta::new_readonly(amm_config, false), // Amm Config (readonly) - FROM EVENT!
             solana_sdk::instruction::AccountMeta::new(pool_state, false), // Pool State
             solana_sdk::instruction::AccountMeta::new(wsol_token_account, false), // Input Token Account
             solana_sdk::instruction::AccountMeta::new(mint_token_account, false), // Output Token Account
@@ -186,12 +229,19 @@ impl RaydiumCpmmInstructionBuilder {
         )
         .min_amount_out;
 
-        let pool_state = get_pool_pda(
-            &accounts::AMM_CONFIG,
-            &protocol_params.base_mint,
-            &protocol_params.quote_mint,
-        )
-        .unwrap();
+        // Use exact pool_state from event if provided, otherwise derive it
+        let pool_state = if let Some(event_pool_state) = protocol_params.pool_state {
+            println!("🎯 [CPMM_SDK_SELL] Using EXACT pool_state from event: {}", event_pool_state);
+            event_pool_state
+        } else {
+            println!("⚠️ [CPMM_SDK_SELL] Event pool_state not provided, deriving with AMM_CONFIG");
+            get_pool_pda(
+                &accounts::AMM_CONFIG,
+                &protocol_params.base_mint,
+                &protocol_params.quote_mint,
+            )
+            .unwrap()
+        };
 
         let wsol_token_account = spl_associated_token_account::get_associated_token_address(
             &params.payer.pubkey(),
@@ -202,11 +252,40 @@ impl RaydiumCpmmInstructionBuilder {
             &params.mint,
         );
 
-        // Get pool token accounts
-        let wsol_vault_account = get_vault_pda(&pool_state, &accounts::WSOL_TOKEN_ACCOUNT).unwrap();
-        let mint_vault_account = get_vault_pda(&pool_state, &params.mint).unwrap();
+        // Use exact vaults from event if provided, otherwise derive them
+        let wsol_vault_account = if let Some(event_output_vault) = protocol_params.output_vault {
+            if protocol_params.base_mint == params.mint {
+                // Token is base (input), WSOL is quote (output)
+                println!("🎯 [CPMM_SDK_SELL] Using EXACT output_vault (WSOL) from event: {}", event_output_vault);
+                event_output_vault
+            } else {
+                // WSOL is base (input), use input_vault
+                protocol_params.input_vault.unwrap_or_else(|| {
+                    get_vault_pda(&pool_state, &accounts::WSOL_TOKEN_ACCOUNT).unwrap()
+                })
+            }
+        } else {
+            get_vault_pda(&pool_state, &accounts::WSOL_TOKEN_ACCOUNT).unwrap()
+        };
+        
+        let mint_vault_account = if let Some(event_input_vault) = protocol_params.input_vault {
+            if protocol_params.base_mint == params.mint {
+                // Token is base (input)
+                println!("🎯 [CPMM_SDK_SELL] Using EXACT input_vault (Token) from event: {}", event_input_vault);
+                event_input_vault
+            } else {
+                // Token is quote (output), use output_vault
+                protocol_params.output_vault.unwrap_or_else(|| {
+                    get_vault_pda(&pool_state, &params.mint).unwrap()
+                })
+            }
+        } else {
+            get_vault_pda(&pool_state, &params.mint).unwrap()
+        };
 
-        let observation_state_account = get_observation_state_pda(&pool_state).unwrap();
+        let observation_state_account = protocol_params.observation_state.unwrap_or_else(|| {
+            get_observation_state_pda(&pool_state).unwrap()
+        });
 
         let mut instructions = vec![];
 
@@ -227,11 +306,18 @@ impl RaydiumCpmmInstructionBuilder {
             protocol_params.quote_token_program
         };
 
+        // Use exact authority and amm_config from event if provided
+        let authority = protocol_params.authority.unwrap_or(accounts::AUTHORITY);
+        let amm_config = protocol_params.amm_config.unwrap_or(accounts::AMM_CONFIG);
+        
+        println!("🎯 [CPMM_SDK_SELL] Using authority: {} (event: {})", authority, protocol_params.authority.is_some());
+        println!("🎯 [CPMM_SDK_SELL] Using amm_config: {} (event: {})", amm_config, protocol_params.amm_config.is_some());
+
         // Create sell instruction
         let accounts = vec![
             solana_sdk::instruction::AccountMeta::new(params.payer.pubkey(), true), // Payer (signer)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::AUTHORITY, false), // Authority (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::AMM_CONFIG, false), // Amm Config (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(authority, false), // Authority (readonly) - FROM EVENT!
+            solana_sdk::instruction::AccountMeta::new_readonly(amm_config, false), // Amm Config (readonly) - FROM EVENT!
             solana_sdk::instruction::AccountMeta::new(pool_state, false), // Pool State
             solana_sdk::instruction::AccountMeta::new(mint_token_account, false), // Input Token Account
             solana_sdk::instruction::AccountMeta::new(wsol_token_account, false), // Output Token Account

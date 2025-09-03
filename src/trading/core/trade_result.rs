@@ -41,6 +41,8 @@ pub struct TradeResult {
     pub slot: Option<u64>,
     /// Solana network fees paid (in lamports)
     pub solana_fees: Option<u64>,
+    /// Token decimals (e.g., 6 for USDC, 9 for most tokens) - CRITICAL for accurate calculations
+    pub token_decimals: u8,
 }
 
 impl TradeResult {
@@ -222,6 +224,7 @@ impl TradeResult {
             original_entry_price: None,
             slot: Some(slot),
             solana_fees,
+            token_decimals,  // 🔥 CRITICAL: Include actual token decimals in result
         })
     }
 
@@ -383,6 +386,7 @@ impl TradeResult {
             original_entry_price: Some(original_entry_price),
             slot: Some(slot),
             solana_fees,
+            token_decimals,  // 🔥 CRITICAL: Include actual token decimals in result
         })
     }
 }

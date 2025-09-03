@@ -165,6 +165,10 @@ pub struct PumpSwapParams {
     /// Automatically handle WSOL wrapping
     /// When true, automatically handles wrapping and unwrapping operations between SOL and WSOL
     pub auto_handle_wsol: bool,
+    /// Fee config account for PumpSwap fee management
+    pub fee_config: Pubkey,
+    /// Fee program account for PumpSwap fee calculation
+    pub fee_program: Pubkey,
 }
 
 impl PumpSwapParams {
@@ -177,6 +181,8 @@ impl PumpSwapParams {
             pool_quote_token_reserves: event.pool_quote_token_reserves,
             creator: event.coin_creator,
             auto_handle_wsol: true,
+            fee_config: event.fee_config,
+            fee_program: event.fee_program,
         }
     }
 
@@ -189,6 +195,8 @@ impl PumpSwapParams {
             pool_quote_token_reserves: event.pool_quote_token_reserves,
             creator: event.coin_creator,
             auto_handle_wsol: true,
+            fee_config: event.fee_config,
+            fee_program: event.fee_program,
         }
     }
 
@@ -207,6 +215,8 @@ impl PumpSwapParams {
             pool_quote_token_reserves: pool_quote_token_reserves,
             creator: pool_data.coin_creator, // Extract creator from pool data
             auto_handle_wsol: true,
+            fee_config: Pubkey::default(), // Will need to be set from trade event
+            fee_program: Pubkey::default(), // Will need to be set from trade event
         })
     }
 }
@@ -351,6 +361,20 @@ pub struct RaydiumCpmmParams {
     pub quote_token_program: Pubkey,
     /// Whether to automatically handle wSOL wrapping and unwrapping
     pub auto_handle_wsol: bool,
+    
+    // 🔥 EXTENDED: Additional CPMM accounts required for accurate copy trading
+    /// Pool authority address
+    pub authority: Option<Pubkey>,
+    /// AMM configuration account
+    pub amm_config: Option<Pubkey>,
+    /// Pool state account address
+    pub pool_state: Option<Pubkey>,
+    /// Input token vault account
+    pub input_vault: Option<Pubkey>,
+    /// Output token vault account
+    pub output_vault: Option<Pubkey>,
+    /// Observation state account for price/volume tracking
+    pub observation_state: Option<Pubkey>,
 }
 
 impl RaydiumCpmmParams {
@@ -371,6 +395,14 @@ impl RaydiumCpmmParams {
             base_token_program: pool.token0_program,
             quote_token_program: pool.token1_program,
             auto_handle_wsol: true,
+            
+            // RPC method doesn't have access to these event-specific accounts
+            authority: None,
+            amm_config: None,
+            pool_state: Some(*pool_address),
+            input_vault: None,
+            output_vault: None,
+            observation_state: None,
         })
     }
 }
