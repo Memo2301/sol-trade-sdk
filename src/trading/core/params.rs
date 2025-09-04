@@ -254,6 +254,8 @@ pub struct BonkParams {
     /// Dynamic fee destination accounts from trade event
     pub fee_destination_1: Pubkey,
     pub fee_destination_2: Pubkey,
+    /// Dynamic platform config from trade event
+    pub platform_config: Pubkey,
 }
 
 impl BonkParams {
@@ -267,6 +269,7 @@ impl BonkParams {
             auto_handle_wsol: true,
             fee_destination_1: trade_info.fee_destination_1,
             fee_destination_2: trade_info.fee_destination_2,
+            platform_config: trade_info.platform_config,
         }
     }
 
@@ -316,6 +319,7 @@ impl BonkParams {
             auto_handle_wsol: true,
             fee_destination_1: trade_info.fee_destination_1,
             fee_destination_2: trade_info.fee_destination_2,
+            platform_config: trade_info.platform_config,
         }
     }
 
@@ -337,6 +341,7 @@ impl BonkParams {
             auto_handle_wsol: true,
             fee_destination_1: Pubkey::default(), // Will need to be set from trade event
             fee_destination_2: Pubkey::default(), // Will need to be set from trade event
+            platform_config: accounts::PLATFORM_CONFIG, // Fallback to hardcoded when no event data available
         })
     }
 }

@@ -125,7 +125,7 @@ impl BonkInstructionBuilder {
             solana_sdk::instruction::AccountMeta::new(params.payer.pubkey(), true), // Account 0: Payer (signer)
             solana_sdk::instruction::AccountMeta::new_readonly(accounts::AUTHORITY, false), // Account 1: Authority (readonly)
             solana_sdk::instruction::AccountMeta::new_readonly(accounts::GLOBAL_CONFIG, false), // Account 2: Global Config (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::PLATFORM_CONFIG, false), // Account 3: Platform Config (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(protocol_params.platform_config, false), // Account 3: Platform Config (readonly)
             solana_sdk::instruction::AccountMeta::new(pool_state, false), // Account 4: Pool State
             solana_sdk::instruction::AccountMeta::new(user_base_token_account, false), // Account 5: User Base Token
             solana_sdk::instruction::AccountMeta::new(user_quote_token_account, false), // Account 6: User Quote Token
@@ -252,7 +252,7 @@ impl BonkInstructionBuilder {
             solana_sdk::instruction::AccountMeta::new(params.payer.pubkey(), true), // Account 0: Payer (signer)
             solana_sdk::instruction::AccountMeta::new_readonly(accounts::AUTHORITY, false), // Account 1: Authority (readonly)
             solana_sdk::instruction::AccountMeta::new_readonly(accounts::GLOBAL_CONFIG, false), // Account 2: Global Config (readonly)
-            solana_sdk::instruction::AccountMeta::new_readonly(accounts::PLATFORM_CONFIG, false), // Account 3: Platform Config (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(protocol_params.platform_config, false), // Account 3: Platform Config (readonly)
             solana_sdk::instruction::AccountMeta::new(pool_state, false), // Account 4: Pool State
             solana_sdk::instruction::AccountMeta::new(user_base_token_account, false), // Account 5: User Base Token
             solana_sdk::instruction::AccountMeta::new(user_quote_token_account, false), // Account 6: User Quote Token
