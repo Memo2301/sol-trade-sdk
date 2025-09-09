@@ -1,12 +1,14 @@
 use sol_trade_sdk::{
-    common::{AnyResult, PriorityFee, TradeConfig},
+    common::{
+        fast_fn::get_associated_token_address_with_program_id_fast_use_seed, AnyResult,
+        PriorityFee, TradeConfig,
+    },
     swqos::SwqosConfig,
     trading::{core::params::PumpSwapParams, factory::DexType},
     SolanaTrade,
 };
 use solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
-use spl_associated_token_account::get_associated_token_address_with_program_id;
 use std::{str::FromStr, sync::Arc};
 
 #[tokio::main]
@@ -16,8 +18,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = create_solana_trade_client().await?;
     let slippage_basis_points = Some(100);
     let recent_blockhash = client.rpc.get_latest_blockhash().await?;
-    let pool = Pubkey::from_str("539m4mVWt6iduB6W8rDGPMarzNCMesuqY5eUTiiYHAgR").unwrap();
-    let mint_pubkey = Pubkey::from_str("pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn").unwrap();
+    let pool = Pubkey::from_str("9qKxzRejsV6Bp2zkefXWCbGvg61c3hHei7ShXJ4FythA").unwrap();
+    let mint_pubkey = Pubkey::from_str("2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv").unwrap();
 
     // Buy tokens
     println!("Buying tokens from PumpSwap...");
@@ -35,17 +37,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             true,
             true,
             true,
-            false,
+            true, // ❗️❗️❗️❗️ open seed optimize
         )
         .await?;
+
+    tokio::time::sleep(std::time::Duration::from_secs(4)).await;
 
     // Sell tokens
     println!("Selling tokens from PumpSwap...");
 
     let rpc = client.rpc.clone();
     let payer = client.payer.pubkey();
-    let program_id = spl_token_2022::ID;
-    let account = get_associated_token_address_with_program_id(&payer, &mint_pubkey, &program_id);
+    let program_id = spl_token::ID;
+    // ❗️❗️❗️❗️  Must use the 'use seed' method to get the ATA account, otherwise the transaction will fail
+    let account = get_associated_token_address_with_program_id_fast_use_seed(
+        &payer,
+        &mint_pubkey,
+        &program_id,
+        true,
+    );
     let balance = rpc.get_token_account_balance(&account).await?;
     let amount_token = balance.amount.parse::<u64>().unwrap();
     client
@@ -62,7 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             true,
             true,
             true,
-            false,
+            true, // ❗️❗️❗️❗️ open seed optimize
         )
         .await?;
 
