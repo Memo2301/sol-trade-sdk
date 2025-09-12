@@ -104,6 +104,10 @@ impl PumpSwapInstructionBuilder {
         fee_config: Pubkey,
         fee_program: Pubkey,
     ) -> Result<Vec<Instruction>> {
+        // RPC validation like backup
+        if params.rpc.is_none() {
+            return Err(anyhow!("RPC is not set"));
+        }
         let quote_mint_is_wsol = quote_mint == crate::constants::WSOL_TOKEN_ACCOUNT;
 
         let token_amount;
@@ -309,6 +313,10 @@ impl PumpSwapInstructionBuilder {
         fee_config: Pubkey,
         fee_program: Pubkey,
     ) -> Result<Vec<Instruction>> {
+        // RPC validation like backup
+        if params.rpc.is_none() {
+            return Err(anyhow!("RPC is not set"));
+        }
         if params.token_amount.is_none() {
             return Err(anyhow!("Token amount is not set"));
         }
