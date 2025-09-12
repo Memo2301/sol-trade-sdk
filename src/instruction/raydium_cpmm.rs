@@ -100,22 +100,22 @@ impl InstructionBuilder for RaydiumCpmmInstructionBuilder {
         // ========================================
         let mut instructions = Vec::with_capacity(6);
 
-        if params.create_wsol_ata {
+        if protocol_params.auto_handle_wsol {
             instructions
                 .extend(crate::trading::common::handle_wsol(&params.payer.pubkey(), amount_in));
         }
 
-        if params.create_mint_ata {
-            instructions.extend(
-                crate::common::fast_fn::create_associated_token_account_idempotent_fast_use_seed(
-                    &params.payer.pubkey(),
-                    &params.payer.pubkey(),
-                    &params.mint,
-                    &mint_token_program,
-                    params.open_seed_optimize,
-                ),
-            );
-        }
+        // Always create the output token account for CPMM buys (like backup version)
+        // This prevents AccountNotInitialized errors
+        instructions.extend(
+            crate::common::fast_fn::create_associated_token_account_idempotent_fast_use_seed(
+                &params.payer.pubkey(),
+                &params.payer.pubkey(),
+                &params.mint,
+                &mint_token_program,
+                params.open_seed_optimize,
+            ),
+        );
 
         // Create buy instruction
         let accounts: [AccountMeta; 13] = [
@@ -230,7 +230,7 @@ impl InstructionBuilder for RaydiumCpmmInstructionBuilder {
         // ========================================
         let mut instructions = Vec::with_capacity(3);
 
-        if params.create_wsol_ata {
+        if protocol_params.auto_handle_wsol {
             instructions.extend(crate::trading::common::create_wsol_ata(&params.payer.pubkey()));
         }
 
@@ -262,8 +262,8 @@ impl InstructionBuilder for RaydiumCpmmInstructionBuilder {
             accounts.to_vec(),
         ));
 
-        if params.close_wsol_ata {
-            // Close wSOL ATA account, reclaim rent
+        if protocol_params.auto_handle_wsol {
+            // Close wSOL ATA account, reclaim rent (matches backup logic)
             instructions.extend(crate::trading::common::close_wsol(&params.payer.pubkey()));
         }
 

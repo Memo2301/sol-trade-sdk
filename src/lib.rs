@@ -8,6 +8,9 @@ pub mod utils;
 use solana_sdk::signer::Signer;
 pub use solana_streamer_sdk;
 
+// Re-export TradeResult for external use
+pub use crate::trading::core::trade_result::TradeResult;
+
 use crate::constants::trade::trade::DEFAULT_SLIPPAGE;
 use crate::swqos::SwqosConfig;
 use crate::trading::core::params::BonkParams;
@@ -15,6 +18,8 @@ use crate::trading::core::params::PumpFunParams;
 use crate::trading::core::params::PumpSwapParams;
 use crate::trading::core::params::RaydiumAmmV4Params;
 use crate::trading::core::params::RaydiumCpmmParams;
+use crate::trading::core::params::RaydiumClmmV2Params;
+use crate::instruction::raydium_clmm::RaydiumClmmParams;
 use crate::trading::core::traits::ProtocolParams;
 use crate::trading::factory::DexType;
 use crate::trading::BuyParams;
@@ -182,7 +187,7 @@ impl SolanaTrade {
             priority_fee: self.priority_fee.clone(),
             lookup_table_key,
             recent_blockhash,
-            data_size_limit: 256 * 1024,
+            data_size_limit: 512 * 1024,
             wait_transaction_confirmed: wait_transaction_confirmed,
             protocol_params: protocol_params.clone(),
             open_seed_optimize,
@@ -206,6 +211,12 @@ impl SolanaTrade {
             DexType::RaydiumCpmm => {
                 protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
             }
+            DexType::RaydiumClmm => {
+                protocol_params.as_any().downcast_ref::<RaydiumClmmParams>().is_some()
+            }
+            DexType::RaydiumClmmV2 => {
+                protocol_params.as_any().downcast_ref::<RaydiumClmmV2Params>().is_some()
+            }
             DexType::RaydiumAmmV4 => {
                 protocol_params.as_any().downcast_ref::<RaydiumAmmV4Params>().is_some()
             }
@@ -215,7 +226,9 @@ impl SolanaTrade {
             return Err(anyhow::anyhow!("Invalid protocol params for Trade"));
         }
 
-        executor.buy_with_tip(buy_params).await
+        // Call executor.buy (not buy_with_tip) and extract signature from TradeResult
+        let trade_result = executor.buy(buy_params, self.middleware_manager.clone()).await?;
+        Ok(trade_result.signature.parse().map_err(|e| anyhow::anyhow!("Failed to parse signature: {}", e))?)
     }
 
     /// Execute a sell order for a specified token
@@ -309,6 +322,12 @@ impl SolanaTrade {
             DexType::RaydiumCpmm => {
                 protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
             }
+            DexType::RaydiumClmm => {
+                protocol_params.as_any().downcast_ref::<RaydiumClmmParams>().is_some()
+            }
+            DexType::RaydiumClmmV2 => {
+                protocol_params.as_any().downcast_ref::<RaydiumClmmV2Params>().is_some()
+            }
             DexType::RaydiumAmmV4 => {
                 protocol_params.as_any().downcast_ref::<RaydiumAmmV4Params>().is_some()
             }
@@ -318,8 +337,15 @@ impl SolanaTrade {
             return Err(anyhow::anyhow!("Invalid protocol params for Trade"));
         }
 
-        // Execute sell based on tip preference
-        executor.sell_with_tip(sell_params).await
+        // Execute sell based on tip preference and extract signature from TradeResult
+        let trade_result = if with_tip {
+            // Convert to SellWithTipParams for tip execution
+            let sell_with_tip_params = sell_params.with_tip(self.swqos_clients.clone());
+            executor.sell_with_tip(sell_with_tip_params, self.middleware_manager.clone()).await?
+        } else {
+            executor.sell(sell_params, self.middleware_manager.clone()).await?
+        };
+        Ok(trade_result.signature.parse().map_err(|e| anyhow::anyhow!("Failed to parse signature: {}", e))?)
     }
 
     /// Execute a sell order for a percentage of the specified token amount
@@ -435,5 +461,168 @@ impl SolanaTrade {
         transaction.sign(&[&*self.payer], recent_blockhash);
         let signature = self.rpc.send_and_confirm_transaction(&transaction).await?;
         Ok(signature.to_string())
+    }
+
+    /// Execute a buy order with custom priority fee for dynamic fee management
+    pub async fn buy_with_priority_fee(
+        &self,
+        dex_type: DexType,
+        mint: Pubkey,
+        creator: Option<Pubkey>,
+        sol_amount: u64,
+        slippage_basis_points: Option<u64>,
+        recent_blockhash: Hash,
+        custom_buy_tip_fee: Option<f64>,
+        extension_params: Box<dyn ProtocolParams>,
+        lookup_table_key: Option<Pubkey>,
+        custom_priority_fee: Option<PriorityFee>,
+    ) -> Result<TradeResult, anyhow::Error> {
+        let executor = TradeFactory::create_executor(dex_type.clone());
+        let protocol_params = extension_params;
+
+        // Use custom priority fee if provided, otherwise use default from trade config
+        let base_priority_fee = custom_priority_fee.unwrap_or_else(|| (*self.priority_fee).clone());
+        
+        // Create basic buy params first
+        let buy_params = BuyParams {
+            rpc: Some(self.rpc.clone()),
+            payer: self.payer.clone(),
+            mint: mint,
+            sol_amount: sol_amount,
+            slippage_basis_points: slippage_basis_points,
+            priority_fee: Arc::new(base_priority_fee.clone()),
+            lookup_table_key,
+            recent_blockhash,
+            data_size_limit: 512 * 1024,
+            wait_transaction_confirmed: true,
+            protocol_params: protocol_params.clone(),
+            open_seed_optimize: false,
+            create_wsol_ata: true,
+            close_wsol_ata: true,
+            create_mint_ata: true,
+            swqos_clients: self.swqos_clients.clone(),
+            middleware_manager: self.middleware_manager.clone(),
+        };
+        
+        // Convert to tip params and apply custom tip fee
+        let mut buy_with_tip_params = buy_params.with_tip(self.swqos_clients.clone());
+        let mut priority_fee = base_priority_fee.clone();
+        if custom_buy_tip_fee.is_some() {
+            priority_fee.buy_tip_fee = custom_buy_tip_fee.unwrap();
+            priority_fee.buy_tip_fees =
+                priority_fee.buy_tip_fees.iter().map(|_| custom_buy_tip_fee.unwrap()).collect();
+        }
+        buy_with_tip_params.priority_fee = priority_fee;
+
+        // Validate protocol params
+        let is_valid_params = match dex_type {
+            DexType::PumpFun => protocol_params.as_any().downcast_ref::<PumpFunParams>().is_some(),
+            DexType::PumpSwap => {
+                protocol_params.as_any().downcast_ref::<PumpSwapParams>().is_some()
+            }
+            DexType::Bonk => protocol_params.as_any().downcast_ref::<BonkParams>().is_some(),
+            DexType::RaydiumCpmm => {
+                protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
+            }
+            DexType::RaydiumClmm => {
+                protocol_params.as_any().downcast_ref::<RaydiumClmmParams>().is_some()
+            }
+            DexType::RaydiumClmmV2 => {
+                protocol_params.as_any().downcast_ref::<RaydiumClmmV2Params>().is_some()
+            }
+            DexType::RaydiumAmmV4 => {
+                protocol_params.as_any().downcast_ref::<RaydiumAmmV4Params>().is_some()
+            }
+        };
+
+        if !is_valid_params {
+            return Err(anyhow::anyhow!("Invalid protocol params for Trade"));
+        }
+
+        // Use Jito execution with REAL transaction analysis
+        executor.buy_with_tip(buy_with_tip_params, self.middleware_manager.clone()).await
+    }
+
+    /// Execute a sell order with custom priority fee for dynamic fee management
+    pub async fn sell_with_priority_fee(
+        &self,
+        dex_type: DexType,
+        mint: Pubkey,
+        creator: Option<Pubkey>,
+        token_amount: u64,
+        slippage_basis_points: Option<u64>,
+        recent_blockhash: Hash,
+        custom_buy_tip_fee: Option<f64>,
+        with_tip: bool,
+        extension_params: Box<dyn ProtocolParams>,
+        lookup_table_key: Option<Pubkey>,
+        custom_priority_fee: Option<PriorityFee>,
+    ) -> Result<TradeResult, anyhow::Error> {
+        let executor = TradeFactory::create_executor(dex_type.clone());
+        let protocol_params = extension_params;
+
+        // Use custom priority fee if provided, otherwise use default from trade config
+        let base_priority_fee = custom_priority_fee.unwrap_or_else(|| (*self.priority_fee).clone());
+        
+        // Create basic sell params first
+        let sell_params = SellParams {
+            rpc: Some(self.rpc.clone()),
+            payer: self.payer.clone(),
+            mint: mint,
+            token_amount: Some(token_amount),
+            slippage_basis_points: slippage_basis_points,
+            priority_fee: Arc::new(base_priority_fee.clone()),
+            lookup_table_key,
+            recent_blockhash,
+            wait_transaction_confirmed: true,
+            with_tip: with_tip,
+            protocol_params: protocol_params.clone(),
+            open_seed_optimize: false,
+            swqos_clients: self.swqos_clients.clone(),
+            middleware_manager: self.middleware_manager.clone(),
+            create_wsol_ata: true,
+            close_wsol_ata: true,
+        };
+
+        // Validate protocol params
+        let is_valid_params = match dex_type {
+            DexType::PumpFun => protocol_params.as_any().downcast_ref::<PumpFunParams>().is_some(),
+            DexType::PumpSwap => {
+                protocol_params.as_any().downcast_ref::<PumpSwapParams>().is_some()
+            }
+            DexType::Bonk => protocol_params.as_any().downcast_ref::<BonkParams>().is_some(),
+            DexType::RaydiumCpmm => {
+                protocol_params.as_any().downcast_ref::<RaydiumCpmmParams>().is_some()
+            }
+            DexType::RaydiumClmm => {
+                protocol_params.as_any().downcast_ref::<RaydiumClmmParams>().is_some()
+            }
+            DexType::RaydiumClmmV2 => {
+                protocol_params.as_any().downcast_ref::<RaydiumClmmV2Params>().is_some()
+            }
+            DexType::RaydiumAmmV4 => {
+                protocol_params.as_any().downcast_ref::<RaydiumAmmV4Params>().is_some()
+            }
+        };
+
+        if !is_valid_params {
+            return Err(anyhow::anyhow!("Invalid protocol params for Trade"));
+        }
+
+        // Execute sell based on tip preference
+        if with_tip {
+            // Convert to tip params and apply custom tip fee
+            let mut sell_with_tip_params = sell_params.with_tip(self.swqos_clients.clone());
+            let mut priority_fee = base_priority_fee.clone();
+            if custom_buy_tip_fee.is_some() {
+                priority_fee.buy_tip_fee = custom_buy_tip_fee.unwrap();
+                priority_fee.buy_tip_fees =
+                    priority_fee.buy_tip_fees.iter().map(|_| custom_buy_tip_fee.unwrap()).collect();
+            }
+            sell_with_tip_params.priority_fee = priority_fee;
+            executor.sell_with_tip(sell_with_tip_params, self.middleware_manager.clone()).await
+        } else {
+            executor.sell(sell_params, self.middleware_manager.clone()).await
+        }
     }
 }

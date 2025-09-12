@@ -15,10 +15,12 @@ use crate::{
 };
 use anyhow::{anyhow, Result};
 use solana_sdk::{
-    instruction::{AccountMeta, Instruction},
+    instruction::Instruction,
     pubkey::Pubkey,
     signer::Signer,
 };
+use spl_associated_token_account::instruction::create_associated_token_account_idempotent;
+use solana_system_interface::instruction::transfer;
 
 /// Instruction builder for PumpSwap protocol
 pub struct PumpSwapInstructionBuilder;
@@ -26,9 +28,7 @@ pub struct PumpSwapInstructionBuilder;
 #[async_trait::async_trait]
 impl InstructionBuilder for PumpSwapInstructionBuilder {
     async fn build_buy_instructions(&self, params: &BuyParams) -> Result<Vec<Instruction>> {
-        // ========================================
-        // Parameter validation and basic data preparation
-        // ========================================
+        // Get PumpSwap specific parameters
         let protocol_params = params
             .protocol_params
             .as_any()
@@ -39,37 +39,75 @@ impl InstructionBuilder for PumpSwapInstructionBuilder {
             return Err(anyhow!("Amount cannot be zero"));
         }
 
-        let pool = protocol_params.pool;
+        // Build instructions based on whether account information is provided (like backup)
         let base_mint = protocol_params.base_mint;
         let quote_mint = protocol_params.quote_mint;
         let pool_base_token_reserves = protocol_params.pool_base_token_reserves;
         let pool_quote_token_reserves = protocol_params.pool_quote_token_reserves;
-        let params_coin_creator_vault_ata = protocol_params.coin_creator_vault_ata;
-        let params_coin_creator_vault_authority = protocol_params.coin_creator_vault_authority;
-        let create_wsol_ata = params.create_wsol_ata;
-        let close_wsol_ata = params.close_wsol_ata;
-        let base_token_program = protocol_params.base_token_program;
-        let quote_token_program = protocol_params.quote_token_program;
-        let pool_base_token_account = protocol_params.pool_base_token_account;
-        let pool_quote_token_account = protocol_params.pool_quote_token_account;
 
-        if base_mint != crate::constants::WSOL_TOKEN_ACCOUNT
-            && quote_mint != crate::constants::WSOL_TOKEN_ACCOUNT
-        {
-            return Err(anyhow!("Invalid base mint and quote mint"));
-        }
+        self.build_buy_instructions_with_accounts(
+            params,
+            protocol_params.pool,
+            base_mint,
+            quote_mint,
+            pool_base_token_reserves,
+            pool_quote_token_reserves,
+            protocol_params.creator,
+            protocol_params.auto_handle_wsol,
+            protocol_params.fee_config,
+            protocol_params.fee_program,
+        )
+        .await
+    }
 
-        // ========================================
-        // Trade calculation and account address preparation
-        // ========================================
+    async fn build_sell_instructions(&self, params: &SellParams) -> Result<Vec<Instruction>> {
+        // Get PumpSwap specific parameters
+        let protocol_params = params
+            .protocol_params
+            .as_any()
+            .downcast_ref::<PumpSwapParams>()
+            .ok_or_else(|| anyhow!("Invalid protocol params for PumpSwap"))?;
+        // Build instructions based on whether account information is provided (like backup)
+        let base_mint = protocol_params.base_mint;
+        let quote_mint = protocol_params.quote_mint;
+        let pool_base_token_reserves = protocol_params.pool_base_token_reserves;
+        let pool_quote_token_reserves = protocol_params.pool_quote_token_reserves;
+
+        self.build_sell_instructions_with_accounts(
+            params,
+            protocol_params.pool,
+            base_mint,
+            quote_mint,
+            pool_base_token_reserves,
+            pool_quote_token_reserves,
+            protocol_params.creator,
+            protocol_params.auto_handle_wsol,
+            protocol_params.fee_config,
+            protocol_params.fee_program,
+        )
+        .await
+    }
+}
+
+impl PumpSwapInstructionBuilder {
+    /// Build buy instructions with provided account information (like backup)
+    async fn build_buy_instructions_with_accounts(
+        &self,
+        params: &BuyParams,
+        pool: Pubkey,
+        base_mint: Pubkey,
+        quote_mint: Pubkey,
+        pool_base_token_reserves: u64,
+        pool_quote_token_reserves: u64,
+        creator: Pubkey,
+        auto_handle_wsol: bool,
+        fee_config: Pubkey,
+        fee_program: Pubkey,
+    ) -> Result<Vec<Instruction>> {
         let quote_mint_is_wsol = quote_mint == crate::constants::WSOL_TOKEN_ACCOUNT;
-        let mut creator = Pubkey::default();
-        if params_coin_creator_vault_authority != accounts::DEFAULT_COIN_CREATOR_VAULT_AUTHORITY {
-            creator = params_coin_creator_vault_authority;
-        }
 
-        let mut token_amount = 0;
-        let mut sol_amount = 0;
+        let token_amount;
+        let sol_amount;
         if quote_mint_is_wsol {
             let result = buy_quote_input_internal(
                 params.sol_amount,
@@ -98,76 +136,121 @@ impl InstructionBuilder for PumpSwapInstructionBuilder {
             sol_amount = params.sol_amount;
         }
 
-        let user_base_token_account =
-            crate::common::fast_fn::get_associated_token_address_with_program_id_fast_use_seed(
-                &params.payer.pubkey(),
+        // Create user token accounts (derive like backup)
+        let user_base_token_account = spl_associated_token_account::get_associated_token_address(
+            &params.payer.pubkey(),
+            &base_mint,
+        );
+        let user_quote_token_account = spl_associated_token_account::get_associated_token_address(
+            &params.payer.pubkey(),
+            &quote_mint,
+        );
+
+        // Get pool token accounts (derive like backup) 
+        let pool_base_token_account =
+            spl_associated_token_account::get_associated_token_address_with_program_id(
+                &pool,
                 &base_mint,
-                &base_token_program,
-                params.open_seed_optimize,
+                &crate::constants::TOKEN_PROGRAM,
             );
-        let user_quote_token_account =
-            crate::common::fast_fn::get_associated_token_address_with_program_id_fast_use_seed(
-                &params.payer.pubkey(),
+
+        let pool_quote_token_account =
+            spl_associated_token_account::get_associated_token_address_with_program_id(
+                &pool,
                 &quote_mint,
-                &quote_token_program,
-                params.open_seed_optimize,
+                &crate::constants::TOKEN_PROGRAM,
             );
-        let fee_recipient_ata = fee_recipient_ata(accounts::FEE_RECIPIENT, quote_mint);
 
-        // ========================================
-        // Build instructions
-        // ========================================
-        let mut instructions = Vec::with_capacity(6);
+        let mut instructions = vec![];
 
-        if create_wsol_ata {
-            instructions
-                .extend(crate::trading::common::handle_wsol(&params.payer.pubkey(), sol_amount));
-        }
-
-        if params.create_mint_ata {
-            instructions.extend(
-                crate::common::fast_fn::create_associated_token_account_idempotent_fast_use_seed(
+        if auto_handle_wsol {
+            // Handle wSOL (like backup)
+            instructions.push(
+                // Create wSOL ATA account if it doesn't exist
+                create_associated_token_account_idempotent(
                     &params.payer.pubkey(),
                     &params.payer.pubkey(),
-                    if quote_mint_is_wsol { &base_mint } else { &quote_mint },
-                    if quote_mint_is_wsol { &base_token_program } else { &quote_token_program },
-                    params.open_seed_optimize,
+                    &crate::constants::WSOL_TOKEN_ACCOUNT,
+                    &crate::constants::TOKEN_PROGRAM,
                 ),
             );
+            instructions.push(
+                // Transfer SOL to wSOL ATA account
+                transfer(
+                    &params.payer.pubkey(),
+                    if quote_mint_is_wsol {
+                        &user_quote_token_account
+                    } else {
+                        &user_base_token_account
+                    },
+                    sol_amount,
+                ),
+            );
+
+            // Sync wSOL balance - CRITICAL for WSOL to work!
+            instructions.push(
+                spl_token::instruction::sync_native(
+                    &crate::constants::TOKEN_PROGRAM,
+                    if quote_mint_is_wsol {
+                        &user_quote_token_account
+                    } else {
+                        &user_base_token_account
+                    },
+                )
+                .unwrap(),
+            );
         }
 
-        // Create buy instruction
-        let mut accounts = Vec::with_capacity(23);
-        accounts.extend([
-            AccountMeta::new_readonly(pool, false), // pool_id (readonly)
-            AccountMeta::new(params.payer.pubkey(), true), // user (signer)
-            accounts::GLOBAL_ACCOUNT_META,          // global (readonly)
-            AccountMeta::new_readonly(base_mint, false), // base_mint (readonly)
-            AccountMeta::new_readonly(quote_mint, false), // quote_mint (readonly)
-            AccountMeta::new(user_base_token_account, false), // user_base_token_account
-            AccountMeta::new(user_quote_token_account, false), // user_quote_token_account
-            AccountMeta::new(pool_base_token_account, false), // pool_base_token_account
-            AccountMeta::new(pool_quote_token_account, false), // pool_quote_token_account
-            accounts::FEE_RECIPIENT_META,           // fee_recipient (readonly)
-            AccountMeta::new(fee_recipient_ata, false), // fee_recipient_ata
-            AccountMeta::new_readonly(base_token_program, false), // TOKEN_PROGRAM_ID (readonly)
-            AccountMeta::new_readonly(quote_token_program, false), // TOKEN_PROGRAM_ID (readonly, duplicated as in JS)
-            crate::constants::SYSTEM_PROGRAM_META,                 // System Program (readonly)
-            accounts::ASSOCIATED_TOKEN_PROGRAM_META, // ASSOCIATED_TOKEN_PROGRAM_ID (readonly)
-            accounts::EVENT_AUTHORITY_META,          // event_authority (readonly)
-            accounts::AMM_PROGRAM_META,              // PUMP_AMM_PROGRAM_ID (readonly)
-            AccountMeta::new(params_coin_creator_vault_ata, false), // coin_creator_vault_ata
-            AccountMeta::new_readonly(params_coin_creator_vault_authority, false), // coin_creator_vault_authority (readonly)
-        ]);
+        // Create user's base token account (use hardcoded token program like backup)
+        instructions.push(create_associated_token_account_idempotent(
+            &params.payer.pubkey(),
+            &params.payer.pubkey(),
+            if quote_mint_is_wsol { &base_mint } else { &quote_mint },
+            &crate::constants::TOKEN_PROGRAM, // ✅ HARDCODED like backup
+        ));
+
+        // Derive creator vault accounts (like backup)
+        let coin_creator_vault_ata = crate::instruction::utils::pumpswap::coin_creator_vault_ata(creator, quote_mint);
+        let coin_creator_vault_authority = crate::instruction::utils::pumpswap::coin_creator_vault_authority(creator);
+        let fee_recipient_ata = fee_recipient_ata(accounts::FEE_RECIPIENT, quote_mint);
+
+        // Create buy instruction (like backup)
+        let mut accounts = vec![
+            solana_sdk::instruction::AccountMeta::new_readonly(pool, false), // pool_id (readonly)
+            solana_sdk::instruction::AccountMeta::new(params.payer.pubkey(), true), // user (signer)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::GLOBAL_ACCOUNT, false), // global (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(base_mint, false), // base_mint (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(quote_mint, false), // quote_mint (readonly)
+            solana_sdk::instruction::AccountMeta::new(user_base_token_account, false), // user_base_token_account
+            solana_sdk::instruction::AccountMeta::new(user_quote_token_account, false), // user_quote_token_account
+            solana_sdk::instruction::AccountMeta::new(pool_base_token_account, false), // pool_base_token_account
+            solana_sdk::instruction::AccountMeta::new(pool_quote_token_account, false), // pool_quote_token_account
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::FEE_RECIPIENT, false), // fee_recipient (readonly)
+            solana_sdk::instruction::AccountMeta::new(fee_recipient_ata, false), // fee_recipient_ata
+            solana_sdk::instruction::AccountMeta::new_readonly(crate::constants::TOKEN_PROGRAM, false), // TOKEN_PROGRAM_ID (readonly) - HARDCODED
+            solana_sdk::instruction::AccountMeta::new_readonly(crate::constants::TOKEN_PROGRAM, false), // TOKEN_PROGRAM_ID (readonly, duplicated as in JS) - HARDCODED
+            solana_sdk::instruction::AccountMeta::new_readonly(crate::constants::SYSTEM_PROGRAM, false), // System Program (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(
+                accounts::ASSOCIATED_TOKEN_PROGRAM,
+                false,
+            ), // ASSOCIATED_TOKEN_PROGRAM_ID (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::EVENT_AUTHORITY, false), // event_authority (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::AMM_PROGRAM, false), // PUMP_AMM_PROGRAM_ID (readonly)
+            solana_sdk::instruction::AccountMeta::new(coin_creator_vault_ata, false), // coin_creator_vault_ata - DERIVED 
+            solana_sdk::instruction::AccountMeta::new_readonly(coin_creator_vault_authority, false), // coin_creator_vault_authority (readonly) - DERIVED
+        ];
         if quote_mint_is_wsol {
-            accounts.push(accounts::GLOBAL_VOLUME_ACCUMULATOR_META);
-            accounts.push(AccountMeta::new(
+            accounts.push(solana_sdk::instruction::AccountMeta::new(
+                crate::instruction::utils::pumpswap::get_global_volume_accumulator_pda().unwrap(),
+                false,
+            ));
+            accounts.push(solana_sdk::instruction::AccountMeta::new(
                 get_user_volume_accumulator_pda(&params.payer.pubkey()).unwrap(),
                 false,
             ));
         }
-        accounts.push(accounts::FEE_CONFIG_META);
-        accounts.push(accounts::FEE_PROGRAM_META);
+        accounts.push(solana_sdk::instruction::AccountMeta::new_readonly(fee_config, false));
+        accounts.push(solana_sdk::instruction::AccountMeta::new_readonly(fee_program, false));
 
         // Create instruction data
         let mut data = [0u8; 24];
@@ -190,57 +273,50 @@ impl InstructionBuilder for PumpSwapInstructionBuilder {
             accounts,
             data: data.to_vec(),
         });
-        if close_wsol_ata {
-            // Close wSOL ATA account, reclaim rent
-            instructions.extend(crate::trading::common::close_wsol(&params.payer.pubkey()));
+        
+        if auto_handle_wsol {
+            // Close wSOL ATA account, reclaim any leftover SOL after buy
+            instructions.push(
+                spl_token::instruction::close_account(
+                    &crate::constants::TOKEN_PROGRAM,
+                    if quote_mint_is_wsol {
+                        &user_quote_token_account
+                    } else {
+                        &user_base_token_account
+                    },
+                    &params.payer.pubkey(),
+                    &params.payer.pubkey(),
+                    &[&params.payer.pubkey()],
+                )
+                .unwrap(),
+            );
         }
+        
         Ok(instructions)
     }
 
-    async fn build_sell_instructions(&self, params: &SellParams) -> Result<Vec<Instruction>> {
-        // ========================================
-        // Parameter validation and basic data preparation
-        // ========================================
-        let protocol_params = params
-            .protocol_params
-            .as_any()
-            .downcast_ref::<PumpSwapParams>()
-            .ok_or_else(|| anyhow!("Invalid protocol params for PumpSwap"))?;
-
-        let pool = protocol_params.pool;
-        let base_mint = protocol_params.base_mint;
-        let quote_mint = protocol_params.quote_mint;
-        let pool_base_token_reserves = protocol_params.pool_base_token_reserves;
-        let pool_quote_token_reserves = protocol_params.pool_quote_token_reserves;
-        let pool_base_token_account = protocol_params.pool_base_token_account;
-        let pool_quote_token_account = protocol_params.pool_quote_token_account;
-        let params_coin_creator_vault_ata = protocol_params.coin_creator_vault_ata;
-        let params_coin_creator_vault_authority = protocol_params.coin_creator_vault_authority;
-        let create_wsol_ata = params.create_wsol_ata;
-        let close_wsol_ata = params.close_wsol_ata;
-        let base_token_program = protocol_params.base_token_program;
-        let quote_token_program = protocol_params.quote_token_program;
-
-        if base_mint != crate::constants::WSOL_TOKEN_ACCOUNT
-            && quote_mint != crate::constants::WSOL_TOKEN_ACCOUNT
-        {
-            return Err(anyhow!("Invalid base mint and quote mint"));
-        }
+    /// Build sell instructions with provided account information (like backup)
+    async fn build_sell_instructions_with_accounts(
+        &self,
+        params: &SellParams,
+        pool: Pubkey,
+        base_mint: Pubkey,
+        quote_mint: Pubkey,
+        pool_base_token_reserves: u64,
+        pool_quote_token_reserves: u64,
+        creator: Pubkey,
+        auto_handle_wsol: bool,
+        fee_config: Pubkey,
+        fee_program: Pubkey,
+    ) -> Result<Vec<Instruction>> {
         if params.token_amount.is_none() {
             return Err(anyhow!("Token amount is not set"));
         }
 
-        // ========================================
-        // Trade calculation and account address preparation
-        // ========================================
         let quote_mint_is_wsol = quote_mint == crate::constants::WSOL_TOKEN_ACCOUNT;
-        let mut creator = Pubkey::default();
-        if params_coin_creator_vault_authority != accounts::DEFAULT_COIN_CREATOR_VAULT_AUTHORITY {
-            creator = params_coin_creator_vault_authority;
-        }
 
-        let mut token_amount = 0;
-        let mut sol_amount = 0;
+        let token_amount;
+        let sol_amount;
         if quote_mint_is_wsol {
             let result = sell_base_input_internal(
                 params.token_amount.unwrap(),
@@ -250,10 +326,10 @@ impl InstructionBuilder for PumpSwapInstructionBuilder {
                 &creator,
             )
             .unwrap();
-            // base_amount_in
-            token_amount = params.token_amount.unwrap();
             // min_quote_amount_out
             sol_amount = result.min_quote;
+            // base_amount_in
+            token_amount = params.token_amount.unwrap();
         } else {
             let result = buy_quote_input_internal(
                 params.token_amount.unwrap(),
@@ -263,70 +339,97 @@ impl InstructionBuilder for PumpSwapInstructionBuilder {
                 &creator,
             )
             .unwrap();
-            // max_quote_amount_in
-            token_amount = result.max_quote;
             // base_amount_out
             sol_amount = result.base;
+            token_amount = params.token_amount.unwrap();
         }
 
-        let fee_recipient_ata = fee_recipient_ata(accounts::FEE_RECIPIENT, quote_mint);
-        let user_base_token_account =
-            crate::common::fast_fn::get_associated_token_address_with_program_id_fast_use_seed(
-                &params.payer.pubkey(),
+        // Create user token accounts (derive like backup)
+        let user_base_token_account = spl_associated_token_account::get_associated_token_address(
+            &params.payer.pubkey(),
+            &base_mint,
+        );
+        let user_quote_token_account = spl_associated_token_account::get_associated_token_address(
+            &params.payer.pubkey(),
+            &quote_mint,
+        );
+
+        // Get pool token accounts (derive like backup)
+        let pool_base_token_account =
+            spl_associated_token_account::get_associated_token_address_with_program_id(
+                &pool,
                 &base_mint,
-                &base_token_program,
-                params.open_seed_optimize,
+                &crate::constants::TOKEN_PROGRAM,
             );
-        let user_quote_token_account =
-            crate::common::fast_fn::get_associated_token_address_with_program_id_fast_use_seed(
-                &params.payer.pubkey(),
+
+        let pool_quote_token_account =
+            spl_associated_token_account::get_associated_token_address_with_program_id(
+                &pool,
                 &quote_mint,
-                &quote_token_program,
-                params.open_seed_optimize,
+                &crate::constants::TOKEN_PROGRAM,
             );
 
-        // ========================================
-        // Build instructions
-        // ========================================
-        let mut instructions = Vec::with_capacity(3);
+        // Derive creator vault accounts (like backup)
+        let coin_creator_vault_ata = crate::instruction::utils::pumpswap::coin_creator_vault_ata(creator, quote_mint);
+        let coin_creator_vault_authority = crate::instruction::utils::pumpswap::coin_creator_vault_authority(creator);
+        let fee_recipient_ata = fee_recipient_ata(accounts::FEE_RECIPIENT, quote_mint);
 
-        if create_wsol_ata {
-            instructions.extend(wsol_manager::create_wsol_ata(&params.payer.pubkey()));
-        }
+        let mut instructions = Vec::with_capacity(5);
 
-        // Create sell instruction
-        let mut accounts = Vec::with_capacity(23);
-        accounts.extend([
-            AccountMeta::new_readonly(pool, false), // pool_id (readonly)
-            AccountMeta::new(params.payer.pubkey(), true), // user (signer)
-            accounts::GLOBAL_ACCOUNT_META,          // global (readonly)
-            AccountMeta::new_readonly(base_mint, false), // mint (readonly)
-            AccountMeta::new_readonly(quote_mint, false), // WSOL_TOKEN_ACCOUNT (readonly)
-            AccountMeta::new(user_base_token_account, false), // user_base_token_account
-            AccountMeta::new(user_quote_token_account, false), // user_quote_token_account
-            AccountMeta::new(pool_base_token_account, false), // pool_base_token_account
-            AccountMeta::new(pool_quote_token_account, false), // pool_quote_token_account
-            accounts::FEE_RECIPIENT_META,           // fee_recipient (readonly)
-            AccountMeta::new(fee_recipient_ata, false), // fee_recipient_ata
-            AccountMeta::new_readonly(base_token_program, false), // TOKEN_PROGRAM_ID (readonly)
-            AccountMeta::new_readonly(quote_token_program, false), // TOKEN_PROGRAM_ID (readonly, duplicated as in JS)
-            crate::constants::SYSTEM_PROGRAM_META,                 // System Program (readonly)
-            accounts::ASSOCIATED_TOKEN_PROGRAM_META, // ASSOCIATED_TOKEN_PROGRAM_ID (readonly)
-            accounts::EVENT_AUTHORITY_META,          // event_authority (readonly)
-            accounts::AMM_PROGRAM_META,              // PUMP_AMM_PROGRAM_ID (readonly)
-            AccountMeta::new(params_coin_creator_vault_ata, false), // coin_creator_vault_ata
-            AccountMeta::new_readonly(params_coin_creator_vault_authority, false), // coin_creator_vault_authority (readonly)
-        ]);
+        // Always create WSOL ATA for sells (like backup)
+        instructions.push(create_associated_token_account_idempotent(
+            &params.payer.pubkey(),
+            &params.payer.pubkey(),
+            &crate::constants::WSOL_TOKEN_ACCOUNT,
+            &crate::constants::TOKEN_PROGRAM,
+        ));
+
+        // Create user's base token account (use hardcoded token program like backup)
+        instructions.push(create_associated_token_account_idempotent(
+            &params.payer.pubkey(),
+            &params.payer.pubkey(),
+            if quote_mint_is_wsol { &base_mint } else { &quote_mint },
+            &crate::constants::TOKEN_PROGRAM, // ✅ HARDCODED like backup
+        ));
+
+        // Create sell instruction (like backup)
+        let mut accounts = vec![
+            solana_sdk::instruction::AccountMeta::new_readonly(pool, false), // pool_id (readonly)
+            solana_sdk::instruction::AccountMeta::new(params.payer.pubkey(), true), // user (signer)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::GLOBAL_ACCOUNT, false), // global (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(base_mint, false), // base_mint (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(quote_mint, false), // quote_mint (readonly)
+            solana_sdk::instruction::AccountMeta::new(user_base_token_account, false), // user_base_token_account
+            solana_sdk::instruction::AccountMeta::new(user_quote_token_account, false), // user_quote_token_account
+            solana_sdk::instruction::AccountMeta::new(pool_base_token_account, false), // pool_base_token_account
+            solana_sdk::instruction::AccountMeta::new(pool_quote_token_account, false), // pool_quote_token_account
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::FEE_RECIPIENT, false), // fee_recipient (readonly)
+            solana_sdk::instruction::AccountMeta::new(fee_recipient_ata, false), // fee_recipient_ata
+            solana_sdk::instruction::AccountMeta::new_readonly(crate::constants::TOKEN_PROGRAM, false), // TOKEN_PROGRAM_ID (readonly) - HARDCODED
+            solana_sdk::instruction::AccountMeta::new_readonly(crate::constants::TOKEN_PROGRAM, false), // TOKEN_PROGRAM_ID (readonly, duplicated as in JS) - HARDCODED
+            solana_sdk::instruction::AccountMeta::new_readonly(crate::constants::SYSTEM_PROGRAM, false), // System Program (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(
+                accounts::ASSOCIATED_TOKEN_PROGRAM,
+                false,
+            ), // ASSOCIATED_TOKEN_PROGRAM_ID (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::EVENT_AUTHORITY, false), // event_authority (readonly)
+            solana_sdk::instruction::AccountMeta::new_readonly(accounts::AMM_PROGRAM, false), // PUMP_AMM_PROGRAM_ID (readonly)
+            solana_sdk::instruction::AccountMeta::new(coin_creator_vault_ata, false), // coin_creator_vault_ata - DERIVED
+            solana_sdk::instruction::AccountMeta::new_readonly(coin_creator_vault_authority, false), // coin_creator_vault_authority (readonly) - DERIVED
+        ];
         if !quote_mint_is_wsol {
-            accounts.push(accounts::GLOBAL_VOLUME_ACCUMULATOR_META);
-            accounts.push(AccountMeta::new(
+            accounts.push(solana_sdk::instruction::AccountMeta::new(
+                crate::instruction::utils::pumpswap::get_global_volume_accumulator_pda().unwrap(),
+                false,
+            ));
+            accounts.push(solana_sdk::instruction::AccountMeta::new(
                 get_user_volume_accumulator_pda(&params.payer.pubkey()).unwrap(),
                 false,
             ));
         }
 
-        accounts.push(accounts::FEE_CONFIG_META);
-        accounts.push(accounts::FEE_PROGRAM_META);
+        accounts.push(solana_sdk::instruction::AccountMeta::new_readonly(fee_config, false));
+        accounts.push(solana_sdk::instruction::AccountMeta::new_readonly(fee_program, false));
 
         // Create instruction data
         let mut data = [0u8; 24];
@@ -349,10 +452,25 @@ impl InstructionBuilder for PumpSwapInstructionBuilder {
             accounts,
             data: data.to_vec(),
         });
-
-        if close_wsol_ata {
-            instructions.extend(crate::trading::common::close_wsol(&params.payer.pubkey()));
+        
+        if auto_handle_wsol {
+            // Close wSOL ATA account after sell to convert WSOL back to SOL (like backup)
+            instructions.push(
+                spl_token::instruction::close_account(
+                    &crate::constants::TOKEN_PROGRAM,
+                    if quote_mint_is_wsol {
+                        &user_quote_token_account
+                    } else {
+                        &user_base_token_account
+                    },
+                    &params.payer.pubkey(),
+                    &params.payer.pubkey(),
+                    &[&params.payer.pubkey()],
+                )
+                .unwrap(),
+            );
         }
+        
         Ok(instructions)
     }
 }

@@ -1,14 +1,29 @@
-use super::params::{BuyParams, SellParams};
+use std::sync::Arc;
+
 use anyhow::Result;
-use solana_sdk::{instruction::Instruction, signature::Signature};
+use solana_sdk::instruction::Instruction;
+use crate::trading::MiddlewareManager;
+
+use super::{
+    params::{BuyParams, BuyWithTipParams, SellParams, SellWithTipParams},
+    trade_result::TradeResult,
+};
 
 /// 交易执行器trait - 定义了所有交易协议都需要实现的核心方法
 #[async_trait::async_trait]
 pub trait TradeExecutor: Send + Sync {
+    /// 执行买入交易
+    async fn buy(&self, params: BuyParams, middleware_manager: Option<Arc<MiddlewareManager>>) -> Result<TradeResult>;
+
     /// 使用MEV服务执行买入交易
-    async fn buy_with_tip(&self, params: BuyParams) -> Result<Signature>;
+    async fn buy_with_tip(&self, params: BuyWithTipParams, middleware_manager: Option<Arc<MiddlewareManager>>) -> Result<TradeResult>;
+
+    /// 执行卖出交易
+    async fn sell(&self, params: SellParams, middleware_manager: Option<Arc<MiddlewareManager>>) -> Result<TradeResult>;
+
     /// 使用MEV服务执行卖出交易
-    async fn sell_with_tip(&self, params: SellParams) -> Result<Signature>;
+    async fn sell_with_tip(&self, params: SellWithTipParams, middleware_manager: Option<Arc<MiddlewareManager>>) -> Result<TradeResult>;
+
     /// 获取协议名称
     fn protocol_name(&self) -> &'static str;
 }

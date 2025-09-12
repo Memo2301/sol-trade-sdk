@@ -234,16 +234,16 @@ impl InstructionBuilder for PumpFunInstructionBuilder {
             accounts.to_vec(),
         ));
 
-        // Optional: Close token account
-        if protocol_params.close_token_account_when_sell.unwrap_or(false) {
-            instructions.push(close_account(
-                &crate::constants::TOKEN_PROGRAM,
-                &user_token_account,
-                &params.payer.pubkey(),
-                &params.payer.pubkey(),
-                &[&params.payer.pubkey()],
-            )?);
-        }
+        // Optional: Close token account - COMMENTED OUT TO PREVENT BALANCE ERROR
+        // if protocol_params.close_token_account_when_sell.unwrap_or(false) {
+        //     instructions.push(close_account(
+        //         &crate::constants::TOKEN_PROGRAM,
+        //         &user_token_account,
+        //         &params.payer.pubkey(),
+        //         &params.payer.pubkey(),
+        //         &[&params.payer.pubkey()],
+        //     )?);
+        // }
 
         Ok(instructions)
     }

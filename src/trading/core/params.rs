@@ -58,6 +58,41 @@ pub struct SellParams {
     pub close_wsol_ata: bool,
 }
 
+/// Buy parameters with MEV service support
+/// Extends BuyParams with MEV client configurations for transaction acceleration
+#[derive(Clone)]
+pub struct BuyWithTipParams {
+    pub rpc: Option<Arc<SolanaRpcClient>>,
+    pub swqos_clients: Vec<Arc<SwqosClient>>,
+    pub payer: Arc<Keypair>,
+    pub mint: Pubkey,
+    pub creator: Pubkey,
+    pub sol_amount: u64,
+    pub slippage_basis_points: Option<u64>,
+    pub priority_fee: PriorityFee,
+    pub lookup_table_key: Option<Pubkey>,
+    pub recent_blockhash: Hash,
+    pub data_size_limit: u32,
+    pub protocol_params: Box<dyn ProtocolParams>,
+}
+
+/// Sell parameters with MEV service support
+/// Extends SellParams with MEV client configurations for transaction acceleration
+#[derive(Clone)]
+pub struct SellWithTipParams {
+    pub rpc: Option<Arc<SolanaRpcClient>>,
+    pub swqos_clients: Vec<Arc<SwqosClient>>,
+    pub payer: Arc<Keypair>,
+    pub mint: Pubkey,
+    pub creator: Pubkey,
+    pub token_amount: Option<u64>,
+    pub slippage_basis_points: Option<u64>,
+    pub priority_fee: PriorityFee,
+    pub lookup_table_key: Option<Pubkey>,
+    pub recent_blockhash: Hash,
+    pub protocol_params: Box<dyn ProtocolParams>,
+}
+
 /// PumpFun protocol specific parameters
 /// Configuration parameters specific to PumpFun trading protocol
 #[derive(Clone)]
@@ -67,6 +102,12 @@ pub struct PumpFunParams {
     pub creator_vault: Pubkey,
     /// Whether to close token account when selling, only effective during sell operations
     pub close_token_account_when_sell: Option<bool>,
+    
+    // CUSTOM FIELDS: Restored from backup for compatibility with our trading system
+    /// Fee config account for PumpFun fee management
+    pub fee_config: Pubkey,
+    /// Fee program account for PumpFun fee calculation
+    pub fee_program: Pubkey,
 }
 
 impl PumpFunParams {
@@ -76,6 +117,8 @@ impl PumpFunParams {
             associated_bonding_curve: Pubkey::default(),
             creator_vault: creator_vault,
             close_token_account_when_sell: Some(close_token_account_when_sell),
+            fee_config: Pubkey::default(),
+            fee_program: Pubkey::default(),
         }
     }
 
@@ -94,6 +137,8 @@ impl PumpFunParams {
             associated_bonding_curve: event.associated_bonding_curve,
             creator_vault: event.creator_vault,
             close_token_account_when_sell: close_token_account_when_sell,
+            fee_config: Pubkey::default(),
+            fee_program: Pubkey::default(),
         }
     }
 
@@ -107,6 +152,8 @@ impl PumpFunParams {
             associated_bonding_curve: event.associated_bonding_curve,
             creator_vault: event.creator_vault,
             close_token_account_when_sell: close_token_account_when_sell,
+            fee_config: Pubkey::default(),
+            fee_program: Pubkey::default(),
         }
     }
 }
@@ -139,22 +186,22 @@ pub struct PumpSwapParams {
     /// Quote token mint address
     /// The mint account address of the quote token in the trading pair, usually SOL or USDC
     pub quote_mint: Pubkey,
-    /// Pool base token account
-    pub pool_base_token_account: Pubkey,
-    /// Pool quote token account
-    pub pool_quote_token_account: Pubkey,
     /// Base token reserves in the pool
     pub pool_base_token_reserves: u64,
     /// Quote token reserves in the pool
     pub pool_quote_token_reserves: u64,
-    /// Coin creator vault ATA
-    pub coin_creator_vault_ata: Pubkey,
-    /// Coin creator vault authority
-    pub coin_creator_vault_authority: Pubkey,
-    /// Token program ID
-    pub base_token_program: Pubkey,
-    /// Quote token program ID
-    pub quote_token_program: Pubkey,
+    
+    // CUSTOM FIELDS: Restored from backup for compatibility with our trading system
+    /// Token creator address (coin_creator from PumpSwap events)
+    /// This is required for deriving the correct coin_creator_vault_authority
+    pub creator: Pubkey,
+    /// Automatically handle WSOL wrapping
+    /// When true, automatically handles wrapping and unwrapping operations between SOL and WSOL
+    pub auto_handle_wsol: bool,
+    /// Fee config account for PumpSwap fee management
+    pub fee_config: Pubkey,
+    /// Fee program account for PumpSwap fee calculation
+    pub fee_program: Pubkey,
 }
 
 impl PumpSwapParams {
@@ -163,14 +210,12 @@ impl PumpSwapParams {
             pool: event.pool,
             base_mint: event.base_mint,
             quote_mint: event.quote_mint,
-            pool_base_token_account: event.pool_base_token_account,
-            pool_quote_token_account: event.pool_quote_token_account,
             pool_base_token_reserves: event.pool_base_token_reserves,
             pool_quote_token_reserves: event.pool_quote_token_reserves,
-            coin_creator_vault_ata: event.coin_creator_vault_ata,
-            coin_creator_vault_authority: event.coin_creator_vault_authority,
-            base_token_program: event.base_token_program,
-            quote_token_program: event.quote_token_program,
+            creator: event.coin_creator,
+            auto_handle_wsol: true,
+            fee_config: event.fee_config,
+            fee_program: event.fee_program,
         }
     }
 
@@ -179,14 +224,12 @@ impl PumpSwapParams {
             pool: event.pool,
             base_mint: event.base_mint,
             quote_mint: event.quote_mint,
-            pool_base_token_account: event.pool_base_token_account,
-            pool_quote_token_account: event.pool_quote_token_account,
             pool_base_token_reserves: event.pool_base_token_reserves,
             pool_quote_token_reserves: event.pool_quote_token_reserves,
-            coin_creator_vault_ata: event.coin_creator_vault_ata,
-            coin_creator_vault_authority: event.coin_creator_vault_authority,
-            base_token_program: event.base_token_program,
-            quote_token_program: event.quote_token_program,
+            creator: event.coin_creator,
+            auto_handle_wsol: true,
+            fee_config: event.fee_config,
+            fee_program: event.fee_program,
         }
     }
 
@@ -197,47 +240,17 @@ impl PumpSwapParams {
         let pool_data = crate::instruction::utils::pumpswap::fetch_pool(rpc, pool_address).await?;
         let (pool_base_token_reserves, pool_quote_token_reserves) =
             crate::instruction::utils::pumpswap::get_token_balances(&pool_data, rpc).await?;
-        let creator = pool_data.coin_creator;
-        let coin_creator_vault_ata = crate::instruction::utils::pumpswap::coin_creator_vault_ata(
-            creator,
-            pool_data.quote_mint,
-        );
-        let coin_creator_vault_authority =
-            crate::instruction::utils::pumpswap::coin_creator_vault_authority(creator);
-
-        let base_token_program_ata =
-            spl_associated_token_account::get_associated_token_address_with_program_id(
-                &pool_address,
-                &pool_data.base_mint,
-                &crate::constants::TOKEN_PROGRAM,
-            );
-        let quote_token_program_ata =
-            spl_associated_token_account::get_associated_token_address_with_program_id(
-                &pool_address,
-                &pool_data.quote_mint,
-                &crate::constants::TOKEN_PROGRAM,
-            );
 
         Ok(Self {
             pool: pool_address.clone(),
             base_mint: pool_data.base_mint,
             quote_mint: pool_data.quote_mint,
-            pool_base_token_account: pool_data.pool_base_token_account,
-            pool_quote_token_account: pool_data.pool_quote_token_account,
             pool_base_token_reserves: pool_base_token_reserves,
             pool_quote_token_reserves: pool_quote_token_reserves,
-            coin_creator_vault_ata: coin_creator_vault_ata,
-            coin_creator_vault_authority: coin_creator_vault_authority,
-            base_token_program: if pool_data.pool_base_token_account == base_token_program_ata {
-                crate::constants::TOKEN_PROGRAM
-            } else {
-                crate::constants::TOKEN_PROGRAM_2022
-            },
-            quote_token_program: if pool_data.pool_quote_token_account == quote_token_program_ata {
-                crate::constants::TOKEN_PROGRAM
-            } else {
-                crate::constants::TOKEN_PROGRAM_2022
-            },
+            creator: pool_data.coin_creator, // Extract creator from pool data
+            auto_handle_wsol: true,
+            fee_config: Pubkey::default(), // Will need to be set from trade event
+            fee_program: Pubkey::default(), // Will need to be set from trade event
         })
     }
 }
@@ -269,6 +282,12 @@ pub struct BonkParams {
     pub platform_config: Pubkey,
     pub platform_associated_account: Pubkey,
     pub creator_associated_account: Pubkey,
+    
+    // CUSTOM FIELDS: Restored from backup for compatibility with our trading system
+    pub auto_handle_wsol: bool,
+    /// Dynamic fee destination accounts from trade event  
+    pub fee_destination_1: Pubkey,
+    pub fee_destination_2: Pubkey,
 }
 
 impl BonkParams {
@@ -299,6 +318,9 @@ impl BonkParams {
             platform_config: trade_info.platform_config,
             platform_associated_account: trade_info.platform_associated_account,
             creator_associated_account: trade_info.creator_associated_account,
+            auto_handle_wsol: true,
+            fee_destination_1: trade_info.fee_destination_1,
+            fee_destination_2: trade_info.fee_destination_2,
         }
     }
 
@@ -354,6 +376,9 @@ impl BonkParams {
             platform_config: trade_info.platform_config,
             platform_associated_account: trade_info.platform_associated_account,
             creator_associated_account: trade_info.creator_associated_account,
+            auto_handle_wsol: true,
+            fee_destination_1: trade_info.fee_destination_1,
+            fee_destination_2: trade_info.fee_destination_2,
         }
     }
 
@@ -389,6 +414,9 @@ impl BonkParams {
             platform_config: pool_data.platform_config,
             platform_associated_account,
             creator_associated_account,
+            auto_handle_wsol: true,
+            fee_destination_1: Pubkey::default(),
+            fee_destination_2: Pubkey::default(),
         })
     }
 }
@@ -429,6 +457,16 @@ pub struct RaydiumCpmmParams {
     pub quote_token_program: Pubkey,
     /// Observation state account
     pub observation_state: Pubkey,
+    
+    // CUSTOM FIELDS: Restored from backup for backward compatibility with our trading system
+    /// Whether to automatically handle wSOL wrapping and unwrapping
+    pub auto_handle_wsol: bool,
+    /// Pool authority address (for backward compatibility)
+    pub authority: Option<Pubkey>,
+    /// Input token vault account (alias for base_vault for backward compatibility)
+    pub input_vault: Option<Pubkey>,
+    /// Output token vault account (alias for quote_vault for backward compatibility)  
+    pub output_vault: Option<Pubkey>,
 }
 
 impl RaydiumCpmmParams {
@@ -449,6 +487,10 @@ impl RaydiumCpmmParams {
             base_token_program: trade_info.input_token_program,
             quote_token_program: trade_info.output_token_program,
             observation_state: trade_info.observation_state,
+            auto_handle_wsol: true,
+            authority: None,
+            input_vault: Some(trade_info.input_vault),
+            output_vault: Some(trade_info.output_vault),
         }
     }
 
@@ -478,6 +520,10 @@ impl RaydiumCpmmParams {
             base_token_program: pool.token0_program,
             quote_token_program: pool.token1_program,
             observation_state: pool.observation_key,
+            auto_handle_wsol: true,
+            authority: None,
+            input_vault: Some(pool.token0_vault),
+            output_vault: Some(pool.token1_vault),
         })
     }
 }
@@ -510,6 +556,16 @@ pub struct RaydiumAmmV4Params {
     pub coin_reserve: u64,
     /// Current pc reserve amount in the pool
     pub pc_reserve: u64,
+    /// Whether to automatically handle wSOL wrapping and unwrapping
+    pub auto_handle_wsol: bool,
+    /// AMM open orders account
+    pub open_orders: Pubkey,
+    /// Serum market account
+    pub market: Pubkey,
+    /// Serum program account
+    pub serum_dex: Pubkey,
+    /// AMM target orders account
+    pub target_orders: Pubkey,
 }
 
 impl RaydiumAmmV4Params {
@@ -527,6 +583,11 @@ impl RaydiumAmmV4Params {
             token_pc: amm_info.token_pc,
             coin_reserve,
             pc_reserve,
+            auto_handle_wsol: true,
+            open_orders: amm_info.open_orders,
+            market: amm_info.market,
+            serum_dex: amm_info.serum_dex,
+            target_orders: amm_info.target_orders,
         }
     }
     pub async fn from_amm_address_by_rpc(
@@ -544,6 +605,11 @@ impl RaydiumAmmV4Params {
             token_pc: amm_info.token_pc,
             coin_reserve,
             pc_reserve,
+            auto_handle_wsol: true,
+            open_orders: amm_info.open_orders,
+            market: amm_info.market,
+            serum_dex: amm_info.serum_dex,
+            target_orders: amm_info.target_orders,
         })
     }
 }
@@ -555,5 +621,89 @@ impl ProtocolParams for RaydiumAmmV4Params {
 
     fn clone_box(&self) -> Box<dyn ProtocolParams> {
         Box::new(self.clone())
+    }
+}
+
+/// Raydium CLMM V2 protocol specific parameters
+/// Configuration parameters specific to Raydium CLMM V2 trading protocol
+#[derive(Clone)]
+pub struct RaydiumClmmV2Params {
+    /// Core CLMM accounts
+    pub amm_config: Pubkey,
+    pub pool_state: Pubkey,
+    pub input_vault: Pubkey,
+    pub output_vault: Pubkey,
+    pub observation_state: Pubkey,
+    /// Vault mint addresses (V2 specific)
+    pub input_vault_mint: Pubkey,
+    pub output_vault_mint: Pubkey,
+    /// Tick arrays for swap execution
+    pub tick_arrays: Vec<Pubkey>,
+    /// Token programs (V2 includes token_program_2022)
+    pub input_token_program: Pubkey,
+    pub output_token_program: Pubkey,
+    pub token_program: Pubkey,
+    pub token_program_2022: Pubkey,
+    pub memo_program: Pubkey,
+    /// User token accounts
+    pub payer_sol_account: Pubkey,
+    pub payer_token_account: Pubkey,
+    /// Instruction parameters
+    pub other_amount_threshold: u64,
+    pub sqrt_price_limit_x64: u128,
+    pub is_base_input: bool,
+    /// Whether to automatically handle wSOL wrapping and unwrapping
+    pub auto_handle_wsol: bool,
+}
+
+impl ProtocolParams for RaydiumClmmV2Params {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn clone_box(&self) -> Box<dyn ProtocolParams> {
+        Box::new(self.clone())
+    }
+}
+
+// CUSTOM METHODS: Restored from backup for compatibility with our trading system
+impl BuyParams {
+    /// Convert to BuyWithTipParams
+    /// Transforms basic buy parameters into MEV-enabled parameters
+    pub fn with_tip(self, swqos_clients: Vec<Arc<SwqosClient>>) -> BuyWithTipParams {
+        BuyWithTipParams {
+            rpc: self.rpc,
+            swqos_clients,
+            payer: self.payer,
+            mint: self.mint,
+            creator: Pubkey::default(),
+            sol_amount: self.sol_amount,
+            slippage_basis_points: self.slippage_basis_points,
+            priority_fee: (*self.priority_fee).clone(),
+            lookup_table_key: self.lookup_table_key,
+            recent_blockhash: self.recent_blockhash,
+            data_size_limit: self.data_size_limit,
+            protocol_params: self.protocol_params,
+        }
+    }
+}
+
+impl SellParams {
+    /// Convert to SellWithTipParams
+    /// Transforms basic sell parameters into MEV-enabled parameters
+    pub fn with_tip(self, swqos_clients: Vec<Arc<SwqosClient>>) -> SellWithTipParams {
+        SellWithTipParams {
+            rpc: self.rpc,
+            swqos_clients,
+            payer: self.payer,
+            mint: self.mint,
+            creator: Pubkey::default(),
+            token_amount: self.token_amount,
+            slippage_basis_points: self.slippage_basis_points,
+            priority_fee: (*self.priority_fee).clone(),
+            lookup_table_key: self.lookup_table_key,
+            recent_blockhash: self.recent_blockhash,
+            protocol_params: self.protocol_params,
+        }
     }
 }

@@ -65,39 +65,38 @@ impl InstructionBuilder for RaydiumAmmV4InstructionBuilder {
         // ========================================
         let mut instructions = Vec::with_capacity(6);
 
-        if params.create_wsol_ata {
+        if protocol_params.auto_handle_wsol {
             instructions
                 .extend(crate::trading::common::handle_wsol(&params.payer.pubkey(), amount_in));
         }
 
-        if params.create_mint_ata {
-            instructions.extend(
-                crate::common::fast_fn::create_associated_token_account_idempotent_fast_use_seed(
-                    &params.payer.pubkey(),
-                    &params.payer.pubkey(),
-                    &params.mint,
-                    &crate::constants::TOKEN_PROGRAM,
-                    params.open_seed_optimize,
-                ),
-            );
-        }
+        // ALWAYS create destination token ATA (like backup does)
+        instructions.extend(
+            crate::common::fast_fn::create_associated_token_account_idempotent_fast_use_seed(
+                &params.payer.pubkey(),
+                &params.payer.pubkey(),
+                &params.mint,
+                &crate::constants::TOKEN_PROGRAM,
+                params.open_seed_optimize,
+            ),
+        );
 
-        // Create buy instruction
+        // Create buy instruction with proper account addresses
         let accounts: [AccountMeta; 17] = [
             crate::constants::TOKEN_PROGRAM_META, // Token Program (readonly)
             AccountMeta::new(protocol_params.amm, false), // Amm
             accounts::AUTHORITY_META,             // Authority (readonly)
-            AccountMeta::new(protocol_params.amm, false), // Amm Open Orders
+            AccountMeta::new(protocol_params.open_orders, false), // Amm Open Orders
             AccountMeta::new(protocol_params.token_coin, false), // Pool Coin Token Account
             AccountMeta::new(protocol_params.token_pc, false), // Pool Pc Token Account
-            AccountMeta::new(protocol_params.amm, false), // Serum Program
-            AccountMeta::new(protocol_params.amm, false), // Serum Market
-            AccountMeta::new(protocol_params.amm, false), // Serum Bids
-            AccountMeta::new(protocol_params.amm, false), // Serum Asks
-            AccountMeta::new(protocol_params.amm, false), // Serum Event Queue
-            AccountMeta::new(protocol_params.amm, false), // Serum Coin Vault Account
-            AccountMeta::new(protocol_params.amm, false), // Serum Pc Vault Account
-            AccountMeta::new(protocol_params.amm, false), // Serum Vault Signer
+            AccountMeta::new_readonly(protocol_params.serum_dex, false), // Serum Program
+            AccountMeta::new(protocol_params.market, false), // Serum Market
+            AccountMeta::new(protocol_params.market, false), // Serum Bids (should be from market data)
+            AccountMeta::new(protocol_params.market, false), // Serum Asks (should be from market data)
+            AccountMeta::new(protocol_params.market, false), // Serum Event Queue (should be from market data)
+            AccountMeta::new(protocol_params.token_coin, false), // Serum Coin Vault Account
+            AccountMeta::new(protocol_params.token_pc, false), // Serum Pc Vault Account
+            AccountMeta::new_readonly(protocol_params.market, false), // Serum Vault Signer
             AccountMeta::new(user_source_token_account, false), // User Source Token Account
             AccountMeta::new(user_destination_token_account, false), // User Destination Token Account
             AccountMeta::new(params.payer.pubkey(), true),           // User Source Owner
@@ -114,7 +113,7 @@ impl InstructionBuilder for RaydiumAmmV4InstructionBuilder {
             accounts.to_vec(),
         ));
 
-        if params.close_wsol_ata {
+        if protocol_params.auto_handle_wsol {
             // Close wSOL ATA account, reclaim rent
             instructions.extend(crate::trading::common::close_wsol(&params.payer.pubkey()));
         }
@@ -169,26 +168,26 @@ impl InstructionBuilder for RaydiumAmmV4InstructionBuilder {
         // ========================================
         let mut instructions = Vec::with_capacity(3);
 
-        if params.create_wsol_ata {
+        if protocol_params.auto_handle_wsol {
             instructions.extend(crate::trading::common::create_wsol_ata(&params.payer.pubkey()));
         }
 
-        // Create buy instruction
+        // Create sell instruction with proper account addresses
         let accounts: [AccountMeta; 17] = [
             crate::constants::TOKEN_PROGRAM_META, // Token Program (readonly)
             AccountMeta::new(protocol_params.amm, false), // Amm
             accounts::AUTHORITY_META,             // Authority (readonly)
-            AccountMeta::new(protocol_params.amm, false), // Amm Open Orders
+            AccountMeta::new(protocol_params.open_orders, false), // Amm Open Orders
             AccountMeta::new(protocol_params.token_coin, false), // Pool Coin Token Account
             AccountMeta::new(protocol_params.token_pc, false), // Pool Pc Token Account
-            AccountMeta::new(protocol_params.amm, false), // Serum Program
-            AccountMeta::new(protocol_params.amm, false), // Serum Market
-            AccountMeta::new(protocol_params.amm, false), // Serum Bids
-            AccountMeta::new(protocol_params.amm, false), // Serum Asks
-            AccountMeta::new(protocol_params.amm, false), // Serum Event Queue
-            AccountMeta::new(protocol_params.amm, false), // Serum Coin Vault Account
-            AccountMeta::new(protocol_params.amm, false), // Serum Pc Vault Account
-            AccountMeta::new(protocol_params.amm, false), // Serum Vault Signer
+            AccountMeta::new_readonly(protocol_params.serum_dex, false), // Serum Program
+            AccountMeta::new(protocol_params.market, false), // Serum Market
+            AccountMeta::new(protocol_params.market, false), // Serum Bids (should be from market data)
+            AccountMeta::new(protocol_params.market, false), // Serum Asks (should be from market data)
+            AccountMeta::new(protocol_params.market, false), // Serum Event Queue (should be from market data)
+            AccountMeta::new(protocol_params.token_coin, false), // Serum Coin Vault Account
+            AccountMeta::new(protocol_params.token_pc, false), // Serum Pc Vault Account
+            AccountMeta::new_readonly(protocol_params.market, false), // Serum Vault Signer
             AccountMeta::new(user_source_token_account, false), // User Source Token Account
             AccountMeta::new(user_destination_token_account, false), // User Destination Token Account
             AccountMeta::new(params.payer.pubkey(), true),           // User Source Owner
@@ -205,7 +204,7 @@ impl InstructionBuilder for RaydiumAmmV4InstructionBuilder {
             accounts.to_vec(),
         ));
 
-        if params.close_wsol_ata {
+        if protocol_params.auto_handle_wsol {
             instructions.extend(crate::trading::common::close_wsol(&params.payer.pubkey()));
         }
 

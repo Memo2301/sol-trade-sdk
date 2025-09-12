@@ -1,10 +1,10 @@
-use anyhow::{anyhow, Result};
+// Removed unused imports
 use std::sync::Arc;
 
 use crate::instruction::{
     bonk::BonkInstructionBuilder, pumpfun::PumpFunInstructionBuilder,
     pumpswap::PumpSwapInstructionBuilder, raydium_amm_v4::RaydiumAmmV4InstructionBuilder,
-    raydium_cpmm::RaydiumCpmmInstructionBuilder,
+    raydium_cpmm::RaydiumCpmmInstructionBuilder, raydium_clmm::{RaydiumClmmInstructionBuilder, RaydiumClmmV2InstructionBuilder},
 };
 
 use super::core::{executor::GenericTradeExecutor, traits::TradeExecutor};
@@ -16,6 +16,8 @@ pub enum DexType {
     PumpSwap,
     Bonk,
     RaydiumCpmm,
+    RaydiumClmm,
+    RaydiumClmmV2,
     RaydiumAmmV4,
 }
 
@@ -30,6 +32,8 @@ impl TradeFactory {
             DexType::PumpSwap => Self::pumpswap_executor(),
             DexType::Bonk => Self::bonk_executor(),
             DexType::RaydiumCpmm => Self::raydium_cpmm_executor(),
+            DexType::RaydiumClmm => Self::raydium_clmm_executor(),
+            DexType::RaydiumClmmV2 => Self::raydium_clmm_v2_executor(),
             DexType::RaydiumAmmV4 => Self::raydium_amm_v4_executor(),
         }
     }
@@ -71,6 +75,26 @@ impl TradeFactory {
             std::sync::LazyLock::new(|| {
                 let instruction_builder = Arc::new(RaydiumCpmmInstructionBuilder);
                 Arc::new(GenericTradeExecutor::new(instruction_builder, "RaydiumCpmm"))
+            });
+        INSTANCE.clone()
+    }
+
+    #[inline]
+    fn raydium_clmm_executor() -> Arc<dyn TradeExecutor> {
+        static INSTANCE: std::sync::LazyLock<Arc<dyn TradeExecutor>> =
+            std::sync::LazyLock::new(|| {
+                let instruction_builder = Arc::new(RaydiumClmmInstructionBuilder);
+                Arc::new(GenericTradeExecutor::new(instruction_builder, "RaydiumClmm"))
+            });
+        INSTANCE.clone()
+    }
+
+    #[inline]
+    fn raydium_clmm_v2_executor() -> Arc<dyn TradeExecutor> {
+        static INSTANCE: std::sync::LazyLock<Arc<dyn TradeExecutor>> =
+            std::sync::LazyLock::new(|| {
+                let instruction_builder = Arc::new(RaydiumClmmV2InstructionBuilder);
+                Arc::new(GenericTradeExecutor::new(instruction_builder, "RaydiumClmmV2"))
             });
         INSTANCE.clone()
     }

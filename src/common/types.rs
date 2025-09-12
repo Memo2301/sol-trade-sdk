@@ -40,6 +40,13 @@ pub struct PriorityFee {
     pub buy_tip_fees: Vec<f64>,
     // Matches the order of swqos
     pub sell_tip_fees: Vec<f64>,
+    
+    // CUSTOM FIELDS: Restored from backup for compatibility with our trading system
+    pub unit_limit: u32,
+    pub unit_price: u64, 
+    pub buy_tip_fee: f64,
+    pub smart_buy_tip_fee: f64,
+    pub sell_tip_fee: f64,
 }
 
 impl Default for PriorityFee {
@@ -53,6 +60,13 @@ impl Default for PriorityFee {
             buy_tip_fees: vec![DEFAULT_BUY_TIP_FEE],
             // Matches the order of swqos
             sell_tip_fees: vec![DEFAULT_SELL_TIP_FEE],
+            
+            // CUSTOM FIELDS: Default values for compatibility
+            unit_limit: DEFAULT_TIP_UNIT_LIMIT, // Use tip unit limit as default
+            unit_price: DEFAULT_TIP_UNIT_PRICE, // Use tip unit price as default
+            buy_tip_fee: DEFAULT_BUY_TIP_FEE,
+            smart_buy_tip_fee: 0.0, // Default to 0.0 for smart buy tip
+            sell_tip_fee: DEFAULT_SELL_TIP_FEE,
         }
     }
 }

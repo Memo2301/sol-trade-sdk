@@ -3,7 +3,7 @@ use solana_hash::Hash;
 use solana_sdk::{
     instruction::Instruction, pubkey::Pubkey, signature::Keypair, signature::Signature,
 };
-use std::{str::FromStr, sync::Arc, time::Instant};
+use std::{str::FromStr, sync::Arc};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
@@ -106,7 +106,6 @@ async fn parallel_execute(
             core_affinity::set_for_current(core_id);
 
             let swqos_type = swqos_client.get_swqos_type();
-            let mut start = Instant::now();
 
             let tip_account_str = swqos_client.get_tip_account()?;
             let tip_account = Arc::new(Pubkey::from_str(&tip_account_str).unwrap_or_default());
@@ -128,26 +127,12 @@ async fn parallel_execute(
             )
             .await?;
 
-            println!(
-                "[{:?}] - Building transaction instructions: {:?}",
-                swqos_type,
-                start.elapsed()
-            );
-
-            start = Instant::now();
-
             swqos_client
                 .send_transaction(
                     if is_buy { TradeType::Buy } else { TradeType::Sell },
                     &transaction,
                 )
                 .await?;
-
-            println!(
-                "[{:?}] - Submitting transaction instructions: {:?}",
-                swqos_type,
-                start.elapsed()
-            );
 
             transaction
                 .signatures

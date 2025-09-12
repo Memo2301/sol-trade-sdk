@@ -62,9 +62,8 @@ impl JitoClient {
     }
 
     pub async fn send_transaction(&self, trade_type: TradeType, transaction: &VersionedTransaction) -> Result<()> {
-        let start_time = Instant::now();
+        let overall_start = Instant::now();
         let (content, signature) = serialize_transaction_and_encode(transaction, UiTransactionEncoding::Base64).await?;
-        println!(" Transaction encoded to base64: {:?}", start_time.elapsed());
 
         let request_body = serde_json::to_string(&json!({
             "id": 1,
@@ -97,27 +96,29 @@ impl JitoClient {
             .text()
             .await?;
 
+        // Check submission result
         if let Ok(response_json) = serde_json::from_str::<serde_json::Value>(&response_text) {
-            if response_json.get("result").is_some() {
-                println!(" jito {} submitted: {:?}", trade_type, start_time.elapsed());
-            } else if let Some(_error) = response_json.get("error") {
-                eprintln!(" jito {} submission failed: {:?}", trade_type, _error);
+            if response_json.get("result").is_none() {
+                if let Some(error) = response_json.get("error") {
+                    println!("\x1b[31m❌ [Jito] {} submission failed: {} | Sig: {}\x1b[0m", trade_type, error, &signature.to_string()[..8]);
+                    return Err(anyhow::anyhow!("Jito submission failed: {}", error));
+                }
             }
         } else {
-            eprintln!(" jito {} submission failed: {:?}", trade_type, response_text);
+            println!("\x1b[31m❌ [Jito] {} submission failed: {} | Sig: {}\x1b[0m", trade_type, response_text, &signature.to_string()[..8]);
+            return Err(anyhow::anyhow!("Jito submission failed: {}", response_text));
         }
 
-        let start_time: Instant = Instant::now();
+        // Confirm transaction
         match poll_transaction_confirmation(&self.rpc_client, signature).await {
-            Ok(_) => (),
+            Ok(_) => {
+                println!("\x1b[32m✅ [Jito] {} confirmed in {:?} | Sig: {}\x1b[0m", trade_type, overall_start.elapsed(), &signature.to_string()[..8]);
+            },
             Err(e) => {
-                println!(" signature: {:?}", signature);
-                println!(" jito {} confirmation failed: {:?}", trade_type, start_time.elapsed());
+                println!("\x1b[31m❌ [Jito] {} confirmation failed in {:?} | Sig: {} | Error: {}\x1b[0m", trade_type, overall_start.elapsed(), &signature.to_string()[..8], e);
                 return Err(e);
             },
         }
-        println!(" signature: {:?}", signature);
-        println!(" jito {} confirmed: {:?}", trade_type, start_time.elapsed());
 
         Ok(())
     }

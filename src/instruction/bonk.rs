@@ -91,22 +91,23 @@ impl InstructionBuilder for BonkInstructionBuilder {
         // ========================================
         let mut instructions = Vec::with_capacity(6);
 
-        if params.create_wsol_ata {
+        // Handle wSOL wrapping if auto_handle_wsol is enabled
+        if protocol_params.auto_handle_wsol {
             instructions
                 .extend(crate::trading::common::handle_wsol(&params.payer.pubkey(), amount_in));
         }
 
-        if params.create_mint_ata {
-            instructions.extend(
-                crate::common::fast_fn::create_associated_token_account_idempotent_fast_use_seed(
-                    &params.payer.pubkey(),
-                    &params.payer.pubkey(),
-                    &params.mint,
-                    &protocol_params.mint_token_program,
-                    params.open_seed_optimize,
-                ),
-            );
-        }
+        // CRITICAL FIX: Always create the token ATA unconditionally (matching backup behavior)
+        // This fixes the "AccountNotInitialized" error for user_base_token
+        instructions.extend(
+            crate::common::fast_fn::create_associated_token_account_idempotent_fast_use_seed(
+                &params.payer.pubkey(),
+                &params.payer.pubkey(),
+                &params.mint,
+                &protocol_params.mint_token_program,
+                params.open_seed_optimize,
+            ),
+        );
 
         let mut data = [0u8; 32];
         data[..8].copy_from_slice(&BUY_EXECT_IN_DISCRIMINATOR);
@@ -131,13 +132,14 @@ impl InstructionBuilder for BonkInstructionBuilder {
             accounts::EVENT_AUTHORITY_META,       // Event Authority (readonly)
             accounts::BONK_META,                  // Program (readonly)
             crate::constants::SYSTEM_PROGRAM_META, // System Program (readonly)
-            AccountMeta::new(protocol_params.platform_associated_account, false), // Platform Associated Account
-            AccountMeta::new(protocol_params.creator_associated_account, false), // Creator Associated Account
+            AccountMeta::new(protocol_params.fee_destination_1, false), // Fee Destination 1 (from trade event)
+            AccountMeta::new(protocol_params.fee_destination_2, false), // Fee Destination 2 (from trade event)
         ];
 
         instructions.push(Instruction::new_with_bytes(accounts::BONK, &data, accounts.to_vec()));
 
-        if params.close_wsol_ata {
+        // Close wSOL ATA if auto_handle_wsol is enabled
+        if protocol_params.auto_handle_wsol {
             instructions.extend(crate::trading::common::close_wsol(&params.payer.pubkey()));
         }
 
@@ -222,7 +224,8 @@ impl InstructionBuilder for BonkInstructionBuilder {
         // ========================================
         let mut instructions = Vec::with_capacity(3);
 
-        if params.create_wsol_ata {
+        // Handle wSOL ATA creation if auto_handle_wsol is enabled
+        if protocol_params.auto_handle_wsol {
             instructions.extend(crate::trading::common::create_wsol_ata(&params.payer.pubkey()));
         }
 
@@ -249,13 +252,14 @@ impl InstructionBuilder for BonkInstructionBuilder {
             accounts::EVENT_AUTHORITY_META,       // Event Authority (readonly)
             accounts::BONK_META,                  // Program (readonly)
             crate::constants::SYSTEM_PROGRAM_META, // System Program (readonly)
-            AccountMeta::new(protocol_params.platform_associated_account, false), // Platform Associated Account
-            AccountMeta::new(protocol_params.creator_associated_account, false), // Creator Associated Account
+            AccountMeta::new(protocol_params.fee_destination_1, false), // Fee Destination 1 (from trade event)
+            AccountMeta::new(protocol_params.fee_destination_2, false), // Fee Destination 2 (from trade event)
         ];
 
         instructions.push(Instruction::new_with_bytes(accounts::BONK, &data, accounts.to_vec()));
 
-        if params.close_wsol_ata {
+        // Close wSOL ATA if auto_handle_wsol is enabled
+        if protocol_params.auto_handle_wsol {
             instructions.extend(crate::trading::common::close_wsol(&params.payer.pubkey()));
         }
 
