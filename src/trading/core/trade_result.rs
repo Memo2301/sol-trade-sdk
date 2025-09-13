@@ -47,6 +47,7 @@ pub struct TradeResult {
 
 impl TradeResult {
     /// Get token decimals from mint account
+    #[allow(dead_code)]
     async fn get_token_decimals(
         rpc_client: &SolanaRpcClient,
         token_mint: &Pubkey,

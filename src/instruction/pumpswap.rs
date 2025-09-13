@@ -5,7 +5,6 @@ use crate::{
         SELL_DISCRIMINATOR,
     },
     trading::{
-        common::wsol_manager,
         core::{
             params::{BuyParams, PumpSwapParams, SellParams},
             traits::InstructionBuilder,

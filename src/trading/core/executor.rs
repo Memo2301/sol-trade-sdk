@@ -92,7 +92,7 @@ impl TradeExecutor for GenericTradeExecutor {
         let rpc_for_analysis = params.rpc.clone();
 
         // Convert to BuyParams for compatibility
-        let mut buy_params = BuyParams {
+        let buy_params = BuyParams {
             rpc: params.rpc,
             payer: params.payer.clone(),
             mint: params.mint,
@@ -201,7 +201,7 @@ impl TradeExecutor for GenericTradeExecutor {
         let _timer = TradeTimer::new("Build sell transaction");
 
         // Convert to SellParams for compatibility
-        let mut sell_params = SellParams {
+        let sell_params = SellParams {
             rpc: params.rpc,
             payer: params.payer.clone(),
             mint: params.mint,
