@@ -84,8 +84,6 @@ impl BondingCurveAccount {
     }
 
     pub fn from_trade(event: &PumpFunTradeEvent) -> Self {
-        // 🔥 DEBUG: Log input event creator
-        println!("🔍 [BONDING_CURVE_DEBUG] Event creator in: {}", event.creator);
         let account = if event.bonding_curve != Pubkey::default() {
             event.bonding_curve
         } else {
@@ -102,8 +100,6 @@ impl BondingCurveAccount {
             complete: false,
             creator: event.creator, // 🔥 CRITICAL FIX: Use actual creator from event
         };
-        // 🔥 DEBUG: Log output creator
-        println!("🔍 [BONDING_CURVE_DEBUG] Bonding curve creator out: {}", result.creator);
         result
     }
 
