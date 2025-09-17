@@ -55,7 +55,11 @@ pub mod accounts {
     pub const GLOBAL_VOLUME_ACCUMULATOR: Pubkey =
         pubkey!("C2aFPdENg4A2HQsmrd5rTw5TaYBX5Ku887cWjbFKtZpw"); // get_global_volume_accumulator_pda().unwrap();
 
-    pub const FEE_CONFIG: Pubkey = pubkey!("5PHirr8joyTMp9JMm6nW7hNDVyEYdkzDqazxPD7RaTjx"); // get_fee_config_pda().unwrap();
+    // 🔧 CRITICAL FIX: Use proper PDA derivation instead of hardcoded wrong address
+    // This was causing "AccountOwnedByWrongProgram" errors because the hardcoded address was incorrect
+    pub fn get_fee_config() -> Pubkey {
+        super::get_fee_config_pda().expect("Failed to derive FEE_CONFIG PDA")
+    }
 
     pub const DEFAULT_COIN_CREATOR_VAULT_AUTHORITY: Pubkey =
         pubkey!("8N3GDaZ2iwN65oxVatKTLPNooAVUJTbfiVJ1ahyqwjSk");
@@ -104,12 +108,14 @@ pub mod accounts {
             is_writable: true,
         };
 
-    pub const FEE_CONFIG_META: solana_sdk::instruction::AccountMeta =
+    // 🔧 CRITICAL FIX: Use dynamic fee config derivation  
+    pub fn get_fee_config_meta() -> solana_sdk::instruction::AccountMeta {
         solana_sdk::instruction::AccountMeta {
-            pubkey: FEE_CONFIG,
+            pubkey: get_fee_config(),
             is_signer: false,
             is_writable: false,
-        };
+        }
+    }
 
     pub const FEE_PROGRAM_META: solana_sdk::instruction::AccountMeta =
         solana_sdk::instruction::AccountMeta {

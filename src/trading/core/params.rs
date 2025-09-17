@@ -117,8 +117,8 @@ impl PumpFunParams {
             associated_bonding_curve: Pubkey::default(),
             creator_vault: creator_vault,
             close_token_account_when_sell: Some(close_token_account_when_sell),
-            fee_config: Pubkey::default(),
-            fee_program: Pubkey::default(),
+            fee_config: crate::instruction::utils::pumpfun::accounts::FEE_CONFIG,
+            fee_program: crate::instruction::utils::pumpfun::accounts::FEE_PROGRAM,
         }
     }
 
@@ -137,8 +137,8 @@ impl PumpFunParams {
             associated_bonding_curve: event.associated_bonding_curve,
             creator_vault: event.creator_vault,
             close_token_account_when_sell: close_token_account_when_sell,
-            fee_config: Pubkey::default(),
-            fee_program: Pubkey::default(),
+            fee_config: crate::instruction::utils::pumpfun::accounts::FEE_CONFIG,
+            fee_program: crate::instruction::utils::pumpfun::accounts::FEE_PROGRAM,
         }
     }
 
@@ -152,8 +152,8 @@ impl PumpFunParams {
             associated_bonding_curve: event.associated_bonding_curve,
             creator_vault: event.creator_vault,
             close_token_account_when_sell: close_token_account_when_sell,
-            fee_config: Pubkey::default(),
-            fee_program: Pubkey::default(),
+            fee_config: crate::instruction::utils::pumpfun::accounts::FEE_CONFIG,
+            fee_program: crate::instruction::utils::pumpfun::accounts::FEE_PROGRAM,
         }
     }
 }
@@ -249,8 +249,8 @@ impl PumpSwapParams {
             pool_quote_token_reserves: pool_quote_token_reserves,
             creator: pool_data.coin_creator, // Extract creator from pool data
             auto_handle_wsol: true,
-            fee_config: Pubkey::default(), // Will need to be set from trade event
-            fee_program: Pubkey::default(), // Will need to be set from trade event
+            fee_config: crate::instruction::utils::pumpswap::accounts::get_fee_config(),
+            fee_program: crate::instruction::utils::pumpswap::accounts::FEE_PROGRAM,
         })
     }
 }
