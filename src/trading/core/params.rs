@@ -206,6 +206,12 @@ pub struct PumpSwapParams {
 
 impl PumpSwapParams {
     pub fn from_buy_trade(event: &PumpSwapBuyEvent) -> Self {
+        let fee_config = crate::instruction::utils::pumpswap::accounts::get_fee_config();
+        let fee_program = crate::instruction::utils::pumpswap::accounts::FEE_PROGRAM;
+        
+        println!("🔧 [PUMPSWAP_PARAMS_DEBUG] from_buy_trade() - fee_config: {}, fee_program: {}", 
+            fee_config, fee_program);
+        
         Self {
             pool: event.pool,
             base_mint: event.base_mint,
@@ -215,12 +221,18 @@ impl PumpSwapParams {
             creator: event.coin_creator,
             auto_handle_wsol: true,
             // 🔧 CRITICAL FIX: Event fee fields are #[borsh(skip)] and empty - use proper PDA derivation
-            fee_config: crate::instruction::utils::pumpswap::accounts::get_fee_config(),
-            fee_program: crate::instruction::utils::pumpswap::accounts::FEE_PROGRAM,
+            fee_config,
+            fee_program,
         }
     }
 
     pub fn from_sell_trade(event: &PumpSwapSellEvent) -> Self {
+        let fee_config = crate::instruction::utils::pumpswap::accounts::get_fee_config();
+        let fee_program = crate::instruction::utils::pumpswap::accounts::FEE_PROGRAM;
+        
+        println!("🔧 [PUMPSWAP_PARAMS_DEBUG] from_sell_trade() - fee_config: {}, fee_program: {}", 
+            fee_config, fee_program);
+        
         Self {
             pool: event.pool,
             base_mint: event.base_mint,
@@ -230,8 +242,8 @@ impl PumpSwapParams {
             creator: event.coin_creator,
             auto_handle_wsol: true,
             // 🔧 CRITICAL FIX: Event fee fields are #[borsh(skip)] and empty - use proper PDA derivation
-            fee_config: crate::instruction::utils::pumpswap::accounts::get_fee_config(),
-            fee_program: crate::instruction::utils::pumpswap::accounts::FEE_PROGRAM,
+            fee_config,
+            fee_program,
         }
     }
 
@@ -243,6 +255,12 @@ impl PumpSwapParams {
         let (pool_base_token_reserves, pool_quote_token_reserves) =
             crate::instruction::utils::pumpswap::get_token_balances(&pool_data, rpc).await?;
 
+        let fee_config = crate::instruction::utils::pumpswap::accounts::get_fee_config();
+        let fee_program = crate::instruction::utils::pumpswap::accounts::FEE_PROGRAM;
+        
+        println!("🔧 [PUMPSWAP_PARAMS_DEBUG] from_pool_address_by_rpc() - fee_config: {}, fee_program: {}", 
+            fee_config, fee_program);
+        
         Ok(Self {
             pool: pool_address.clone(),
             base_mint: pool_data.base_mint,
@@ -251,8 +269,8 @@ impl PumpSwapParams {
             pool_quote_token_reserves: pool_quote_token_reserves,
             creator: pool_data.coin_creator, // Extract creator from pool data
             auto_handle_wsol: true,
-            fee_config: crate::instruction::utils::pumpswap::accounts::get_fee_config(),
-            fee_program: crate::instruction::utils::pumpswap::accounts::FEE_PROGRAM,
+            fee_config,
+            fee_program,
         })
     }
 }
