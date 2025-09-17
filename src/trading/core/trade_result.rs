@@ -43,6 +43,9 @@ pub struct TradeResult {
     pub solana_fees: Option<u64>,
     /// Token decimals (e.g., 6 for USDC, 9 for most tokens) - CRITICAL for accurate calculations
     pub token_decimals: u8,
+    /// Post-trade token balance (remaining tokens after the transaction) - CRITICAL for account cleanup
+    /// This is the actual balance left in the account after the sell, used to determine if cleanup is needed
+    pub post_token_balance: Option<f64>,
 }
 
 impl TradeResult {
@@ -296,6 +299,7 @@ impl TradeResult {
             slot: Some(slot),
             solana_fees,
             token_decimals,  // 🔥 CRITICAL: Include actual token decimals in result
+            post_token_balance: None, // Not relevant for buy transactions
         })
     }
 
@@ -371,6 +375,7 @@ impl TradeResult {
 
         let mut tokens_sold = 0.0;
         let mut sol_received = 0.0;
+        let mut post_token_balance = None;
 
         // Find token balance change for our token mint and wallet
         for pre_balance in &pre_token_balances {
@@ -393,6 +398,9 @@ impl TradeResult {
                         }
                     })
                     .unwrap_or(0.0);
+
+                // 🧹 CRITICAL: Capture the post-balance for account cleanup decisions
+                post_token_balance = Some(post_amount);
 
                 // 🔥 FIXED: Use ui_amount if available, otherwise calculate from raw amount
                 let pre_amount = if let Some(ui_amount) = pre_balance.ui_token_amount.ui_amount {
@@ -462,6 +470,7 @@ impl TradeResult {
             slot: Some(slot),
             solana_fees,
             token_decimals,  // 🔥 CRITICAL: Include actual token decimals in result
+            post_token_balance, // 🧹 CRITICAL: Actual remaining balance after sell for account cleanup
         })
     }
 }

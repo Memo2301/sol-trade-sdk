@@ -258,6 +258,7 @@ impl TradeExecutor for GenericTradeExecutor {
             slot: None,
             solana_fees: None,
             token_decimals: 6, // Default to 6 decimals
+            post_token_balance: None, // Not analyzed here, will be populated by analyze_sell_transaction
         };
 
         Ok(trade_result)
