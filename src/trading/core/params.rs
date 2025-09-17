@@ -214,8 +214,9 @@ impl PumpSwapParams {
             pool_quote_token_reserves: event.pool_quote_token_reserves,
             creator: event.coin_creator,
             auto_handle_wsol: true,
-            fee_config: event.fee_config,
-            fee_program: event.fee_program,
+            // 🔧 CRITICAL FIX: Event fee fields are #[borsh(skip)] and empty - use proper PDA derivation
+            fee_config: crate::instruction::utils::pumpswap::accounts::get_fee_config(),
+            fee_program: crate::instruction::utils::pumpswap::accounts::FEE_PROGRAM,
         }
     }
 
@@ -228,8 +229,9 @@ impl PumpSwapParams {
             pool_quote_token_reserves: event.pool_quote_token_reserves,
             creator: event.coin_creator,
             auto_handle_wsol: true,
-            fee_config: event.fee_config,
-            fee_program: event.fee_program,
+            // 🔧 CRITICAL FIX: Event fee fields are #[borsh(skip)] and empty - use proper PDA derivation
+            fee_config: crate::instruction::utils::pumpswap::accounts::get_fee_config(),
+            fee_program: crate::instruction::utils::pumpswap::accounts::FEE_PROGRAM,
         }
     }
 
