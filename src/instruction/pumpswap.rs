@@ -103,9 +103,6 @@ impl PumpSwapInstructionBuilder {
         fee_config: Pubkey,
         fee_program: Pubkey,
     ) -> Result<Vec<Instruction>> {
-        // 🔧 [PUMPSWAP_INSTRUCTION_DEBUG] Log incoming fee accounts to trace the bug
-        println!("🔧 [PUMPSWAP_INSTRUCTION_DEBUG] build_buy_instructions_with_accounts() - fee_config: {}, fee_program: {}", 
-            fee_config, fee_program);
         
         // RPC validation like backup
         if params.rpc.is_none() {
@@ -316,9 +313,6 @@ impl PumpSwapInstructionBuilder {
         fee_config: Pubkey,
         fee_program: Pubkey,
     ) -> Result<Vec<Instruction>> {
-        // 🔧 [PUMPSWAP_INSTRUCTION_DEBUG] Log incoming fee accounts to trace the bug  
-        println!("🔧 [PUMPSWAP_INSTRUCTION_DEBUG] build_sell_instructions_with_accounts() - fee_config: {}, fee_program: {}", 
-            fee_config, fee_program);
         
         // RPC validation like backup
         if params.rpc.is_none() {

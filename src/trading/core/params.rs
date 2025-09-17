@@ -209,9 +209,6 @@ impl PumpSwapParams {
         let fee_config = crate::instruction::utils::pumpswap::accounts::get_fee_config();
         let fee_program = crate::instruction::utils::pumpswap::accounts::FEE_PROGRAM;
         
-        println!("🔧 [PUMPSWAP_PARAMS_DEBUG] from_buy_trade() - fee_config: {}, fee_program: {}", 
-            fee_config, fee_program);
-        
         Self {
             pool: event.pool,
             base_mint: event.base_mint,
@@ -229,9 +226,6 @@ impl PumpSwapParams {
     pub fn from_sell_trade(event: &PumpSwapSellEvent) -> Self {
         let fee_config = crate::instruction::utils::pumpswap::accounts::get_fee_config();
         let fee_program = crate::instruction::utils::pumpswap::accounts::FEE_PROGRAM;
-        
-        println!("🔧 [PUMPSWAP_PARAMS_DEBUG] from_sell_trade() - fee_config: {}, fee_program: {}", 
-            fee_config, fee_program);
         
         Self {
             pool: event.pool,
@@ -257,9 +251,6 @@ impl PumpSwapParams {
 
         let fee_config = crate::instruction::utils::pumpswap::accounts::get_fee_config();
         let fee_program = crate::instruction::utils::pumpswap::accounts::FEE_PROGRAM;
-        
-        println!("🔧 [PUMPSWAP_PARAMS_DEBUG] from_pool_address_by_rpc() - fee_config: {}, fee_program: {}", 
-            fee_config, fee_program);
         
         Ok(Self {
             pool: pool_address.clone(),

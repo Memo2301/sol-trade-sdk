@@ -180,13 +180,14 @@ impl TradeExecutor for GenericTradeExecutor {
         let signature = sell_parallel_execute(params.clone(), final_instructions, self.protocol_name).await?;
         timer.stage("Transaction analysis");
 
-        // Analyze transaction to get actual trade results
-        let trade_result = TradeResult::analyze_transaction(
+        // Analyze SELL transaction to get actual trade results with profit calculation
+        let trade_result = TradeResult::analyze_sell_transaction(
             &rpc,
             &signature,
             &params.mint,
             &params.payer.pubkey(),
-            0.0, // For sell, we analyze the tokens sold instead
+            params.token_amount.unwrap_or(0) as f64, // Expected tokens sold
+            0.0, // We'll calculate entry price from trade history if needed
         ).await?;
 
         timer.finish();

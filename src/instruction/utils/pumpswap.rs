@@ -58,9 +58,7 @@ pub mod accounts {
     // 🔧 CRITICAL FIX: Use proper PDA derivation instead of hardcoded wrong address
     // This was causing "AccountOwnedByWrongProgram" errors because the hardcoded address was incorrect
     pub fn get_fee_config() -> Pubkey {
-        let fee_config = super::get_fee_config_pda().expect("Failed to derive FEE_CONFIG PDA");
-        println!("🔧 [PUMPSWAP_DEBUG] get_fee_config() returning: {}", fee_config);
-        fee_config
+        super::get_fee_config_pda().expect("Failed to derive FEE_CONFIG PDA")
     }
 
     pub const DEFAULT_COIN_CREATOR_VAULT_AUTHORITY: Pubkey =
@@ -300,9 +298,5 @@ pub fn get_fee_config_pda() -> Option<Pubkey> {
     let program_id: &Pubkey = &accounts::FEE_PROGRAM;
     let pda: Option<(Pubkey, u8)> = Pubkey::try_find_program_address(seeds, program_id);
     
-    let result = pda.map(|pubkey| pubkey.0);
-    println!("🔧 [PUMPSWAP_DEBUG] get_fee_config_pda() - seeds: fee_config + {}, program_id: {}, result: {:?}", 
-        accounts::AMM_PROGRAM, program_id, result);
-    
-    result
+    pda.map(|pubkey| pubkey.0)
 }
