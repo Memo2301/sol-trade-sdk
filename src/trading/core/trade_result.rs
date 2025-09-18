@@ -377,44 +377,44 @@ impl TradeResult {
         let mut sol_received = 0.0;
         let mut post_token_balance = None;
 
-        // Find token balance change for our token mint and wallet
-        for pre_balance in &pre_token_balances {
-            if pre_balance.mint == token_mint_str && pre_balance.owner.as_ref() == Some(&wallet_str).into() {
-                // Find corresponding post-balance
-                let post_amount = post_token_balances
-                    .iter()
-                    .find(|post| {
-                        post.mint == token_mint_str && 
-                        post.owner.as_ref() == Some(&wallet_str).into() &&
-                        post.account_index == pre_balance.account_index
-                    })
-                    .map(|post| {
-                        // 🔥 FIXED: Use ui_amount if available, otherwise calculate from raw amount
-                        if let Some(ui_amount) = post.ui_token_amount.ui_amount {
-                            ui_amount
-                        } else {
-                            let raw_amount = post.ui_token_amount.amount.parse::<u64>().unwrap_or(0);
-                            Self::raw_amount_to_ui_amount(raw_amount, token_decimals)
-                        }
-                    })
-                    .unwrap_or(0.0);
+        // Find pre-balance for our specific wallet and token mint
+        let pre_balance = pre_token_balances
+            .iter()
+            .find(|balance| {
+                balance.mint == token_mint_str && 
+                balance.owner.as_ref() == Some(&wallet_str).into()
+            });
 
-                // 🧹 CRITICAL: Capture the post-balance for account cleanup decisions
-                post_token_balance = Some(post_amount);
+        // Find post-balance for our specific wallet and token mint
+        let post_balance = post_token_balances
+            .iter()
+            .find(|balance| {
+                balance.mint == token_mint_str && 
+                balance.owner.as_ref() == Some(&wallet_str).into()
+            });
 
-                // 🔥 FIXED: Use ui_amount if available, otherwise calculate from raw amount
-                let pre_amount = if let Some(ui_amount) = pre_balance.ui_token_amount.ui_amount {
-                    ui_amount
-                } else {
-                    let raw_amount = pre_balance.ui_token_amount.amount.parse::<u64>().unwrap_or(0);
-                    Self::raw_amount_to_ui_amount(raw_amount, token_decimals)
-                };
-                let token_delta = pre_amount - post_amount;
+        // Calculate token amounts and capture post-balance
+        if let (Some(pre), Some(post)) = (pre_balance, post_balance) {
+            let pre_amount = if let Some(ui_amount) = pre.ui_token_amount.ui_amount {
+                ui_amount
+            } else {
+                let raw_amount = pre.ui_token_amount.amount.parse::<u64>().unwrap_or(0);
+                Self::raw_amount_to_ui_amount(raw_amount, token_decimals)
+            };
 
-                if token_delta > 0.0 {
-                    tokens_sold = token_delta;
-                    break;
-                }
+            let post_amount = if let Some(ui_amount) = post.ui_token_amount.ui_amount {
+                ui_amount
+            } else {
+                let raw_amount = post.ui_token_amount.amount.parse::<u64>().unwrap_or(0);
+                Self::raw_amount_to_ui_amount(raw_amount, token_decimals)
+            };
+
+            // 🧹 CRITICAL: Always capture the post-balance for account cleanup decisions
+            post_token_balance = Some(post_amount);
+
+            let token_delta = pre_amount - post_amount;
+            if token_delta > 0.0 {
+                tokens_sold = token_delta;
             }
         }
 
