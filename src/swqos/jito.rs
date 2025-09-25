@@ -3,13 +3,11 @@ use crate::swqos::common::{poll_transaction_confirmation, serialize_transaction_
 use rand::seq::IndexedRandom;
 use reqwest::Client;
 use serde_json::json;
-use std::{sync::Arc, time::Instant};
-
-use std::time::Duration;
+use std::{sync::Arc, time::{Duration, Instant}};
 use solana_transaction_status::UiTransactionEncoding;
 
 use anyhow::Result;
-use solana_sdk::transaction::VersionedTransaction;
+use solana_sdk::{signature::Signature, transaction::VersionedTransaction};
 use crate::swqos::{SwqosType, TradeType};
 use crate::swqos::SwqosClientTrait;
 
@@ -109,13 +107,12 @@ impl JitoClient {
             return Err(anyhow::anyhow!("Jito submission failed: {}", response_text));
         }
 
-        // Confirm transaction
-        match poll_transaction_confirmation(&self.rpc_client, signature).await {
+        // Confirm transaction with retry logic for timeouts
+        match self.confirm_transaction_with_retry(trade_type, signature, overall_start).await {
             Ok(_) => {
-                println!("\x1b[32m✅ [Jito] {} confirmed in {:?} | Sig: {}\x1b[0m", trade_type, overall_start.elapsed(), &signature.to_string()[..8]);
+                // Success message is printed in confirm_transaction_with_retry
             },
             Err(e) => {
-                println!("\x1b[31m❌ [Jito] {} confirmation failed in {:?} | Sig: {} | Error: {}\x1b[0m", trade_type, overall_start.elapsed(), &signature.to_string()[..8], e);
                 return Err(e);
             },
         }
@@ -164,5 +161,53 @@ impl JitoClient {
         }
 
         Ok(())
+    }
+
+    /// Confirm transaction with retry logic for timeout errors
+    async fn confirm_transaction_with_retry(
+        &self, 
+        trade_type: TradeType, 
+        signature: Signature,
+        overall_start: Instant
+    ) -> Result<()> {
+        let max_retries = 2; // As requested by user
+        
+        for attempt in 0..=max_retries {
+            match poll_transaction_confirmation(&self.rpc_client, signature).await {
+                Ok(_) => {
+                    println!("\x1b[32m✅ [Jito] {} confirmed in {:?} | Sig: {}\x1b[0m", 
+                        trade_type, overall_start.elapsed(), &signature.to_string()[..8]);
+                    return Ok(());
+                },
+                Err(e) => {
+                    let error_msg = e.to_string();
+                    
+                    // Check if this is a timeout error
+                    if error_msg.contains("confirmation timed out") {
+                        if attempt < max_retries {
+                            println!("\x1b[33m⏰ [Jito] {} confirmation timed out on attempt {}, retrying... | Sig: {}\x1b[0m", 
+                                trade_type, attempt + 1, &signature.to_string()[..8]);
+                            
+                            // Brief pause before retry
+                            tokio::time::sleep(Duration::from_millis(500)).await;
+                            continue;
+                        } else {
+                            // All retries exhausted for timeout
+                            println!("\x1b[31m❌ [Jito] {} confirmation failed after {} retries (all timeouts) in {:?} | Sig: {}\x1b[0m", 
+                                trade_type, max_retries + 1, overall_start.elapsed(), &signature.to_string()[..8]);
+                            return Err(anyhow::anyhow!("Transaction confirmation timed out after {} retries", max_retries + 1));
+                        }
+                    } else {
+                        // Non-timeout error - don't retry, fail immediately
+                        println!("\x1b[31m❌ [Jito] {} confirmation failed in {:?} | Sig: {} | Error: {}\x1b[0m", 
+                            trade_type, overall_start.elapsed(), &signature.to_string()[..8], error_msg);
+                        return Err(e);
+                    }
+                }
+            }
+        }
+        
+        // Should never reach here due to the loop logic above
+        unreachable!()
     }
 }
