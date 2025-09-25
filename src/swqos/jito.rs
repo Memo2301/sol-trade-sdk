@@ -99,12 +99,12 @@ impl JitoClient {
             if response_json.get("result").is_none() {
                 if let Some(error) = response_json.get("error") {
                     println!("\x1b[31m❌ [Jito] {} submission failed: {} | Sig: {}\x1b[0m", trade_type, error, &signature.to_string()[..8]);
-                    return Err(anyhow::anyhow!("Jito submission failed: {}", error));
+                    return Err(anyhow::anyhow!("Jito submission failed: {} | Signature: {}", error, signature));
                 }
             }
         } else {
             println!("\x1b[31m❌ [Jito] {} submission failed: {} | Sig: {}\x1b[0m", trade_type, response_text, &signature.to_string()[..8]);
-            return Err(anyhow::anyhow!("Jito submission failed: {}", response_text));
+            return Err(anyhow::anyhow!("Jito submission failed: {} | Signature: {}", response_text, signature));
         }
 
         // Confirm transaction with retry logic for timeouts
