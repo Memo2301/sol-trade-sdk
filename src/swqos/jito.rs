@@ -195,13 +195,13 @@ impl JitoClient {
                             // All retries exhausted for timeout
                             println!("\x1b[31m❌ [Jito] {} confirmation failed after {} retries (all timeouts) in {:?} | Sig: {}\x1b[0m", 
                                 trade_type, max_retries + 1, overall_start.elapsed(), &signature.to_string()[..8]);
-                            return Err(anyhow::anyhow!("Transaction confirmation timed out after {} retries", max_retries + 1));
+                            return Err(anyhow::anyhow!("Transaction confirmation timed out after {} retries | Signature: {}", max_retries + 1, signature));
                         }
                     } else {
                         // Non-timeout error - don't retry, fail immediately
                         println!("\x1b[31m❌ [Jito] {} confirmation failed in {:?} | Sig: {} | Error: {}\x1b[0m", 
                             trade_type, overall_start.elapsed(), &signature.to_string()[..8], error_msg);
-                        return Err(e);
+                        return Err(anyhow::anyhow!("{} | Signature: {}", error_msg, signature));
                     }
                 }
             }

@@ -175,7 +175,15 @@ async fn parallel_execute(
             Ok(Ok(sig)) => {
                 return Ok(sig);
             }
-            Ok(Err(e)) => errors.push(format!("Task error: {}", e)),
+            Ok(Err(e)) => {
+                // Preserve signature information in error messages
+                let error_msg = e.to_string();
+                if error_msg.contains("Signature: ") || error_msg.contains("Sig: ") || error_msg.contains("Transaction ") {
+                    errors.push(error_msg); // Keep original error with signature info
+                } else {
+                    errors.push(format!("Task error: {}", e));
+                }
+            },
             Err(e) => errors.push(format!("Join error: {}", e)),
         }
     }
