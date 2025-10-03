@@ -221,33 +221,53 @@ impl TradeResult {
         let pre_balances = &meta.pre_balances;
         let post_balances = &meta.post_balances;
 
-        // Find the largest SOL balance decrease, which should represent the buyer's payment
-        // For CLMM and complex transactions, we check all accounts to find the main spender
-        let mut largest_decrease = 0i64;
-        let mut best_index = 0usize;
+        // 🎯 CRITICAL FIX: Find the user's wallet account by matching the address
+        // Get account keys from the transaction to match wallet address
+        let account_keys = match &transaction.transaction.transaction {
+            solana_transaction_status::EncodedTransaction::Json(ui_tx) => {
+                if let solana_transaction_status::UiMessage::Parsed(parsed_msg) = &ui_tx.message {
+                    parsed_msg.account_keys.iter().map(|k| k.pubkey.clone()).collect::<Vec<String>>()
+                } else {
+                    vec![]
+                }
+            },
+            _ => vec![]
+        };
+
+        // Find the index of the user's wallet in account_keys
+        let wallet_index = account_keys.iter().position(|key| key == &wallet_str);
         
-        for (index, (&pre_balance, &post_balance)) in pre_balances.iter().zip(post_balances.iter()).enumerate() {
-            let balance_delta = pre_balance as i64 - post_balance as i64;
-            if balance_delta > largest_decrease {
-                largest_decrease = balance_delta;
-                best_index = index;
+        if let Some(index) = wallet_index {
+            // Found the user's wallet - get their SOL balance change
+            if index < pre_balances.len() && index < post_balances.len() {
+                let pre_balance_lamports = pre_balances[index];
+                let post_balance_lamports = post_balances[index];
+                let balance_delta_lamports = pre_balance_lamports as i64 - post_balance_lamports as i64;
+                
+                if balance_delta_lamports > 0 {
+                    sol_spent = balance_delta_lamports as f64 / 1_000_000_000.0;
+                    log::debug!("🔍 [TRADE_ANALYSIS] Found user's wallet at account index {} with SOL spent: {:.9}", 
+                        index, sol_spent);
+                }
             }
-        }
-        
-        if largest_decrease > 0 {
-            sol_spent = largest_decrease as f64 / 1_000_000_000.0;
-            log::debug!("🔍 [TRADE_ANALYSIS] Found largest SOL decrease at account index {} with SOL spent: {:.6}", 
-                best_index, sol_spent);
-        }
-        
-        // Fallback: If we couldn't find the wallet in account keys, try the first account
-        if sol_spent <= 0.0 && pre_balances.len() > 0 && post_balances.len() > 0 {
-            let pre_balance_lamports = pre_balances[0];
-            let post_balance_lamports = post_balances[0];
-            let balance_delta_lamports = pre_balance_lamports as i64 - post_balance_lamports as i64;
+        } else {
+            // Fallback: If we can't find the wallet in account keys, use the largest decrease
+            log::warn!("⚠️ [TRADE_ANALYSIS] Could not find wallet {} in account keys, using fallback logic", wallet_address);
+            let mut largest_decrease = 0i64;
+            let mut best_index = 0usize;
             
-            if balance_delta_lamports > 0 {
-                sol_spent = balance_delta_lamports as f64 / 1_000_000_000.0;
+            for (index, (&pre_balance, &post_balance)) in pre_balances.iter().zip(post_balances.iter()).enumerate() {
+                let balance_delta = pre_balance as i64 - post_balance as i64;
+                if balance_delta > largest_decrease {
+                    largest_decrease = balance_delta;
+                    best_index = index;
+                }
+            }
+            
+            if largest_decrease > 0 {
+                sol_spent = largest_decrease as f64 / 1_000_000_000.0;
+                log::debug!("🔍 [TRADE_ANALYSIS] Fallback: Found largest SOL decrease at account index {} with SOL spent: {:.6}", 
+                    best_index, sol_spent);
             }
         }
 
@@ -422,15 +442,53 @@ impl TradeResult {
         let pre_balances = &meta.pre_balances;
         let post_balances = &meta.post_balances;
 
-        // Calculate SOL received from balance changes 
-        // Use first account (index 0) which is typically the signer/payer
-        if pre_balances.len() > 0 && post_balances.len() > 0 {
-            let pre_balance_lamports = pre_balances[0];
-            let post_balance_lamports = post_balances[0];
-            let balance_delta_lamports = post_balance_lamports as i64 - pre_balance_lamports as i64;
+        // 🎯 CRITICAL FIX: Find the user's wallet account by matching the address
+        // Get account keys from the transaction to match wallet address
+        let account_keys = match &transaction.transaction.transaction {
+            solana_transaction_status::EncodedTransaction::Json(ui_tx) => {
+                if let solana_transaction_status::UiMessage::Parsed(parsed_msg) = &ui_tx.message {
+                    parsed_msg.account_keys.iter().map(|k| k.pubkey.clone()).collect::<Vec<String>>()
+                } else {
+                    vec![]
+                }
+            },
+            _ => vec![]
+        };
+
+        // Find the index of the user's wallet in account_keys
+        let wallet_index = account_keys.iter().position(|key| key == &wallet_str);
+        
+        if let Some(index) = wallet_index {
+            // Found the user's wallet - get their SOL balance change
+            if index < pre_balances.len() && index < post_balances.len() {
+                let pre_balance_lamports = pre_balances[index];
+                let post_balance_lamports = post_balances[index];
+                let balance_delta_lamports = post_balance_lamports as i64 - pre_balance_lamports as i64;
+                
+                if balance_delta_lamports > 0 {
+                    sol_received = balance_delta_lamports as f64 / 1_000_000_000.0;
+                    log::debug!("🔍 [TRADE_ANALYSIS] Found user's wallet at account index {} with SOL received: {:.9}", 
+                        index, sol_received);
+                }
+            }
+        } else {
+            // Fallback: If we can't find the wallet in account keys, use the largest increase
+            log::warn!("⚠️ [TRADE_ANALYSIS] Could not find wallet {} in account keys, using fallback logic", wallet_address);
+            let mut largest_increase = 0i64;
+            let mut best_index = 0usize;
             
-            if balance_delta_lamports > 0 {
-                sol_received = balance_delta_lamports as f64 / 1_000_000_000.0;
+            for (index, (&pre_balance, &post_balance)) in pre_balances.iter().zip(post_balances.iter()).enumerate() {
+                let balance_delta = post_balance as i64 - pre_balance as i64;
+                if balance_delta > largest_increase {
+                    largest_increase = balance_delta;
+                    best_index = index;
+                }
+            }
+            
+            if largest_increase > 0 {
+                sol_received = largest_increase as f64 / 1_000_000_000.0;
+                log::debug!("🔍 [TRADE_ANALYSIS] Fallback: Found largest SOL increase at account index {} with SOL received: {:.6}", 
+                    best_index, sol_received);
             }
         }
 
