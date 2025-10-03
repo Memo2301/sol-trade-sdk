@@ -442,10 +442,6 @@ impl TradeResult {
         let pre_balances = &meta.pre_balances;
         let post_balances = &meta.post_balances;
 
-        // 🎯 DEBUG: Log what we're looking for
-        log::info!("🔍 [SELL_DEBUG] Looking for wallet: {}", wallet_str);
-        log::info!("🔍 [SELL_DEBUG] Pre-balances count: {}, Post-balances count: {}", pre_balances.len(), post_balances.len());
-
         // 🎯 CRITICAL FIX: Find the user's wallet account by matching the address
         // Get account keys from the transaction to match wallet address
         let account_keys = match &transaction.transaction.transaction {
@@ -453,68 +449,39 @@ impl TradeResult {
                 if let solana_transaction_status::UiMessage::Parsed(parsed_msg) = &ui_tx.message {
                     parsed_msg.account_keys.iter().map(|k| k.pubkey.clone()).collect::<Vec<String>>()
                 } else {
-                    log::warn!("🔍 [SELL_DEBUG] Transaction message is NOT Parsed");
                     vec![]
                 }
             },
-            _ => {
-                log::warn!("🔍 [SELL_DEBUG] Transaction is NOT Json encoded");
-                vec![]
-            }
+            _ => vec![]
         };
-
-        // 🎯 DEBUG: Log all account keys
-        log::info!("🔍 [SELL_DEBUG] Found {} account keys:", account_keys.len());
-        for (i, key) in account_keys.iter().enumerate() {
-            log::info!("🔍 [SELL_DEBUG]   [{}]: {}", i, key);
-            if i < pre_balances.len() && i < post_balances.len() {
-                let delta = post_balances[i] as i64 - pre_balances[i] as i64;
-                log::info!("🔍 [SELL_DEBUG]       Pre: {} lamports, Post: {} lamports, Delta: {} lamports ({:.9} SOL)", 
-                    pre_balances[i], post_balances[i], delta, delta as f64 / 1_000_000_000.0);
-            }
-        }
 
         // Find the index of the user's wallet in account_keys
         let wallet_index = account_keys.iter().position(|key| key == &wallet_str);
         
         if let Some(index) = wallet_index {
-            log::info!("✅ [SELL_DEBUG] FOUND user's wallet at index {}", index);
             // Found the user's wallet - get their SOL balance change
             if index < pre_balances.len() && index < post_balances.len() {
                 let pre_balance_lamports = pre_balances[index];
                 let post_balance_lamports = post_balances[index];
                 let balance_delta_lamports = post_balance_lamports as i64 - pre_balance_lamports as i64;
                 
-                log::info!("🔍 [SELL_DEBUG] User wallet balance change: Pre={}, Post={}, Delta={} lamports ({:.9} SOL)", 
-                    pre_balance_lamports, post_balance_lamports, balance_delta_lamports, balance_delta_lamports as f64 / 1_000_000_000.0);
-                
                 if balance_delta_lamports > 0 {
                     sol_received = balance_delta_lamports as f64 / 1_000_000_000.0;
-                    log::info!("✅ [SELL_DEBUG] Setting sol_received to: {:.9} SOL", sol_received);
-                } else {
-                    log::warn!("⚠️ [SELL_DEBUG] Balance delta is NOT positive: {} - sol_received will remain 0", balance_delta_lamports);
                 }
-            } else {
-                log::error!("❌ [SELL_DEBUG] Index {} is out of bounds for balance arrays!", index);
             }
         } else {
             // Fallback: If we can't find the wallet in account keys, use the largest increase
-            log::warn!("⚠️ [SELL_DEBUG] Could NOT find wallet {} in account keys, using fallback logic", wallet_address);
             let mut largest_increase = 0i64;
-            let mut best_index = 0usize;
             
             for (index, (&pre_balance, &post_balance)) in pre_balances.iter().zip(post_balances.iter()).enumerate() {
                 let balance_delta = post_balance as i64 - pre_balance as i64;
-                log::info!("🔍 [SELL_DEBUG] Fallback check [{}]: delta={} lamports", index, balance_delta);
                 if balance_delta > largest_increase {
                     largest_increase = balance_delta;
-                    best_index = index;
                 }
             }
             
             if largest_increase > 0 {
                 sol_received = largest_increase as f64 / 1_000_000_000.0;
-                log::warn!("⚠️ [SELL_DEBUG] Using fallback: index {} with SOL received: {:.9}", best_index, sol_received);
             }
         }
 
